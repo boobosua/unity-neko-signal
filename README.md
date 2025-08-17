@@ -19,17 +19,17 @@ A lightweight, type-safe event system for Unity that provides decoupled communic
 
 ### Via Git URL
 
-Add this package via Unity Package Manager:
+1. Install NekoLib package first by adding this via Unity Package Manager:
+
+```
+https://github.com/boobosua/unity-nekolib.git
+```
+
+2. Add this package via Unity Package Manager:
 
 ```
 https://github.com/boobosua/unity-neko-signal.git
 ```
-
-### Manual Installation
-
-1. Download the package
-2. Import into your Unity project
-3. No external dependencies required
 
 ## Features
 
