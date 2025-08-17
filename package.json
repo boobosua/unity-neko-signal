@@ -5,7 +5,7 @@
   "description": "A signal system for Unity.",
   "unity": "2020.3",
   "dependencies": {
-    "com.nekoindie.nekounity.lib": "1.5.2"
+    "com.nekoindie.nekounity.lib": "https://github.com/boobosua/unity-nekolib.git#1.5.2"
   },
   "author": {
     "name": "Nguyen Thanh Trung",
