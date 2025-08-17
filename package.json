@@ -1,0 +1,19 @@
+{
+  "name": "com.nekoindie.nekounity.signal",
+  "version": "1.0.0",
+  "displayName": "NekoSignal",
+  "description": "A signal system for Unity.",
+  "unity": "2020.3",
+  "dependencies": {
+    "com.nekoindie.nekounity.lib": "https://github.com/boobosua/unity-nekolib.git"
+  },
+  "author": {
+    "name": "Nguyen Thanh Trung",
+    "url": "https://github.com/boobosua"
+  },
+  "keywords": [
+    "unity",
+    "event",
+    "signal"
+  ]
+}
