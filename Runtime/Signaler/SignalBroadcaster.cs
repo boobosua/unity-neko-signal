@@ -28,7 +28,7 @@ namespace NekoSignal
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Palette.GoldenAmber)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.GA)}");
                 return;
             }
 
@@ -63,7 +63,7 @@ namespace NekoSignal
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Palette.GoldenAmber)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.GA)}");
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace NekoSignal
                 {
                     channel.Clear();
                     _signalChannels.Remove(type);
-                    Debug.Log($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Palette.VibrantRed)}. Channel cleared.");
+                    Debug.Log($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Swatch.VR)}. Channel cleared.");
                 }
             }
         }
@@ -100,7 +100,7 @@ namespace NekoSignal
         {
             if (signal == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Palette.GoldenAmber)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.GA)}");
                 return;
             }
 
@@ -307,7 +307,7 @@ namespace NekoSignal
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Palette.GoldenAmber)}: {ex}");
+                Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Swatch.GA)}: {ex}");
             }
         }
 

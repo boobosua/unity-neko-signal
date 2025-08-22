@@ -1,3 +1,10 @@
+## [1.0.2] - 2025-08-23
+
+### Refactor Colors
+
+- Refactor color codes along with NekoLib.
+- Available only for NekoLib 1.6.3+.
+
 ## [1.0.1] - 2025-08-23
 
 ### Redesign Debug Tools
