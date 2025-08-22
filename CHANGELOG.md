@@ -1,3 +1,10 @@
+## [1.0.1] - 2025-08-23
+
+### Redesign Debug Tools
+
+- Rework signal monitor inspector GUI.
+- Redesign signal tracker window.
+
 ## [1.0.0] - 2025-08-18
 
 ### Premature Signal System

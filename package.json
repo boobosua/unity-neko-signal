@@ -1,6 +1,6 @@
 {
   "name": "com.nekoindie.nekounity.signal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "NekoSignal",
   "description": "A signal system for Unity.",
   "unity": "2020.3",
@@ -14,6 +14,7 @@
   "keywords": [
     "unity",
     "event",
-    "signal"
+    "signal",
+    "bus"
   ]
 }

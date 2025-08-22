@@ -9,98 +9,242 @@ namespace NekoSignal
     public class SignalReceiverMonitorInspector : Editor
     {
         private bool _showDetails = true;
-        private Vector2 _scrollPosition;
+        private int _currentPage = 0;
+        private const int ITEMS_PER_PAGE = 10;
 
         public override void OnInspectorGUI()
         {
-            var monitor = (SignalReceiverMonitor)target;
-
-            // Header
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Signal Receiver Monitor", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
-
-            // Summary
-            var receiversCount = monitor.ActiveReceiversCount;
-            var summaryStyle = new GUIStyle(EditorStyles.helpBox)
+            try
             {
-                fontSize = 12
-            };
+                var monitor = (SignalReceiverMonitor)target;
+                if (monitor == null) return;
 
-            EditorGUILayout.BeginVertical(summaryStyle);
-            EditorGUILayout.LabelField($"📊 Active Subscriptions: {receiversCount}", EditorStyles.boldLabel);
-
-            if (receiversCount == 0)
-            {
-                EditorGUILayout.LabelField("🎉 No active signal subscriptions", EditorStyles.centeredGreyMiniLabel);
-            }
-            else
-            {
-                EditorGUILayout.LabelField($"💾 Automatic cleanup on GameObject destruction", EditorStyles.miniLabel);
-            }
-            EditorGUILayout.EndVertical();
-
-            if (receiversCount > 0)
-            {
+                // Header
                 EditorGUILayout.Space();
+                // Summary
+                var receiversCount = monitor.ActiveReceiversCount;
+                var summaryStyle = new GUIStyle(EditorStyles.helpBox)
+                {
+                    fontSize = 12
+                };
 
-                // Toggle for details
-                _showDetails = EditorGUILayout.Foldout(_showDetails, "📋 Subscription Details", true);
+                EditorGUILayout.BeginVertical(summaryStyle);
+                EditorGUILayout.LabelField($"Active Subscriptions: {receiversCount}", EditorStyles.boldLabel);
 
-                if (_showDetails)
+                if (receiversCount == 0)
+                {
+                    EditorGUILayout.LabelField("🎉 No active signal subscriptions", EditorStyles.centeredGreyMiniLabel);
+                }
+                else
+                {
+                    EditorGUILayout.LabelField($"Automatic cleanup on GameObject destruction", EditorStyles.miniLabel);
+                }
+                EditorGUILayout.EndVertical();
+
+                if (receiversCount > 0)
                 {
                     EditorGUILayout.Space();
 
-                    // Scrollable area for many subscriptions
-                    _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition, GUILayout.MaxHeight(300));
+                    // Toggle for details
+                    _showDetails = EditorGUILayout.Foldout(_showDetails, "Subscription Details", true);
 
-                    var receivers = monitor.GetReceiversInfo().ToList();
-
-                    for (int i = 0; i < receivers.Count; i++)
+                    if (_showDetails)
                     {
-                        var (callbackInfo, isActive) = receivers[i];
-
-                        // Style based on active status
-                        var bgColor = isActive ? new Color(0.8f, 1f, 0.8f, 0.3f) : new Color(1f, 0.8f, 0.8f, 0.3f);
-                        var icon = isActive ? "✅" : "❌";
-
-                        var originalColor = GUI.backgroundColor;
-                        GUI.backgroundColor = bgColor;
-
-                        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                        GUI.backgroundColor = originalColor;
-
-                        EditorGUILayout.BeginHorizontal();
-
-                        // Status icon
-                        GUILayout.Label(icon, GUILayout.Width(20));
-
-                        // Callback info
-                        EditorGUILayout.LabelField($"{i + 1}.", GUILayout.Width(25));
-                        EditorGUILayout.LabelField(callbackInfo, EditorStyles.wordWrappedLabel);
-
-                        EditorGUILayout.EndHorizontal();
-
-                        // Status text
-                        var statusStyle = new GUIStyle(EditorStyles.miniLabel);
-                        statusStyle.normal.textColor = isActive ? Color.green : Color.red;
-                        EditorGUILayout.LabelField($"Status: {(isActive ? "Active" : "Disposed")}", statusStyle);
-
-                        EditorGUILayout.EndVertical();
-                        EditorGUILayout.Space(2);
+                        DrawReceiversTable(monitor);
                     }
 
-                    EditorGUILayout.EndScrollView();
+                    // Reduced spacing before buttons
+                    EditorGUILayout.Space(5);
+
+                    // Action buttons
+                    DrawActionButtons(monitor, receiversCount);
                 }
 
                 EditorGUILayout.Space();
+            }
+            catch (System.Exception e)
+            {
+                EditorGUILayout.HelpBox($"Error in SignalReceiverMonitor: {e.Message}", MessageType.Error);
+                Debug.LogError($"[SignalReceiverMonitor] OnInspectorGUI Error: {e}");
+            }
+        }
 
-                // Action buttons
-                EditorGUILayout.BeginHorizontal();
+        private void DrawReceiversTable(SignalReceiverMonitor monitor)
+        {
+            try
+            {
+                var receivers = monitor.GetReceiversInfo()?.ToList();
+                if (receivers == null || receivers.Count == 0)
+                {
+                    EditorGUILayout.LabelField("No receiver information available", EditorStyles.miniLabel);
+                    return;
+                }
 
+                int totalPages = Mathf.CeilToInt((float)receivers.Count / ITEMS_PER_PAGE);
+
+                // Ensure current page is valid
+                _currentPage = Mathf.Clamp(_currentPage, 0, Mathf.Max(0, totalPages - 1));
+
+                // Table header with pagination info
+                if (totalPages > 1)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.LabelField($"Page {_currentPage + 1} of {totalPages}", EditorStyles.miniLabel, GUILayout.Width(80));
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                // Table-style layout
+                var tableStyle = new GUIStyle(EditorStyles.helpBox);
+                EditorGUILayout.BeginVertical(tableStyle);
+
+                try
+                {
+                    // Table header
+                    EditorGUILayout.BeginHorizontal();
+                    var headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 11 };
+                    EditorGUILayout.LabelField("", headerStyle, GUILayout.Width(20)); // Status icon
+                    EditorGUILayout.LabelField("#", headerStyle, GUILayout.Width(30));
+                    EditorGUILayout.LabelField("Callback Information", headerStyle);
+                    EditorGUILayout.LabelField("Status", headerStyle, GUILayout.Width(60));
+                    EditorGUILayout.EndHorizontal();
+
+                    // Separator line
+                    var separatorRect = GUILayoutUtility.GetRect(0, 1);
+                    EditorGUI.DrawRect(separatorRect, new Color(0.5f, 0.5f, 0.5f, 0.5f));
+
+                    // Table rows
+                    int startIndex = _currentPage * ITEMS_PER_PAGE;
+                    int endIndex = Mathf.Min(startIndex + ITEMS_PER_PAGE, receivers.Count);
+
+                    for (int i = startIndex; i < endIndex; i++)
+                    {
+                        if (i < receivers.Count)
+                        {
+                            DrawReceiverRow(receivers[i], i, startIndex);
+                        }
+                    }
+                }
+                finally
+                {
+                    EditorGUILayout.EndVertical();
+                }
+
+                // Pagination controls
+                if (totalPages > 1)
+                {
+                    int startIndex = _currentPage * ITEMS_PER_PAGE;
+                    int endIndex = Mathf.Min(startIndex + ITEMS_PER_PAGE, receivers.Count);
+                    DrawPaginationControls(receivers, startIndex, endIndex);
+                }
+            }
+            catch (System.Exception e)
+            {
+                EditorGUILayout.HelpBox($"Error drawing receivers table: {e.Message}", MessageType.Error);
+                Debug.LogError($"[SignalReceiverMonitor] DrawReceiversTable Error: {e}");
+            }
+        }
+
+        private void DrawReceiverRow((string callbackInfo, bool isActive) receiver, int globalIndex, int startIndex)
+        {
+            var (callbackInfo, isActive) = receiver;
+
+            // Alternating row colors
+            var bgColor = (globalIndex - startIndex) % 2 == 0 ?
+                new Color(0f, 0f, 0f, 0.05f) :
+                new Color(0f, 0f, 0f, 0.1f);
+
+            if (!isActive)
+            {
+                bgColor = new Color(1f, 0.3f, 0.3f, 0.2f); // Red tint for inactive
+            }
+
+            var originalColor = GUI.backgroundColor;
+            GUI.backgroundColor = bgColor;
+
+            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+
+            try
+            {
+                GUI.backgroundColor = originalColor;
+
+                // Status icon
+                var icon = isActive ? "✅" : "❌";
+                EditorGUILayout.LabelField(icon, GUILayout.Width(20));
+
+                // Index
+                EditorGUILayout.LabelField($"{globalIndex + 1}", GUILayout.Width(30));
+
+                // Callback info (truncated for table display)
+                var truncatedInfo = callbackInfo?.Length > 60 ?
+                    callbackInfo.Substring(0, 57) + "..." :
+                    callbackInfo ?? "Unknown";
+                EditorGUILayout.LabelField(truncatedInfo, EditorStyles.label);
+
+                // Status
+                var statusStyle = new GUIStyle(EditorStyles.miniLabel);
+                statusStyle.normal.textColor = isActive ? new Color(0.2f, 0.8f, 0.2f) : new Color(0.8f, 0.2f, 0.2f);
+                var statusText = isActive ? "Active" : "Disposed";
+                EditorGUILayout.LabelField(statusText, statusStyle, GUILayout.Width(60));
+            }
+            finally
+            {
+                GUI.backgroundColor = originalColor;
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private void DrawPaginationControls(System.Collections.Generic.List<(string, bool)> receivers, int startIndex, int endIndex)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            try
+            {
+                int totalPages = Mathf.CeilToInt((float)receivers.Count / ITEMS_PER_PAGE);
+
+                // Previous button
+                GUI.enabled = _currentPage > 0;
+                if (GUILayout.Button("◀ Previous", GUILayout.Width(80), GUILayout.Height(20)))
+                {
+                    _currentPage--;
+                }
+                GUI.enabled = true;
+
+                GUILayout.FlexibleSpace();
+
+                // Page info
+                EditorGUILayout.LabelField($"{startIndex + 1}-{endIndex} of {receivers.Count}",
+                    EditorStyles.centeredGreyMiniLabel, GUILayout.Width(80));
+
+                GUILayout.FlexibleSpace();
+
+                // Next button
+                GUI.enabled = _currentPage < totalPages - 1;
+                if (GUILayout.Button("Next ▶", GUILayout.Width(80), GUILayout.Height(20)))
+                {
+                    _currentPage++;
+                }
+                GUI.enabled = true;
+            }
+            finally
+            {
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private void DrawActionButtons(SignalReceiverMonitor monitor, int receiversCount)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            try
+            {
                 if (GUILayout.Button("🔄 Refresh", GUILayout.Height(25)))
                 {
-                    Repaint();
+                    // Only repaint if not in layout/repaint event to prevent loops
+                    if (Event.current?.type != EventType.Repaint && Event.current?.type != EventType.Layout)
+                    {
+                        Repaint();
+                    }
                 }
 
                 if (GUILayout.Button("🗑️ Dispose All", GUILayout.Height(25)))
@@ -109,49 +253,89 @@ namespace NekoSignal
                         $"Are you sure you want to dispose all {receiversCount} signal receivers?",
                         "Yes", "Cancel"))
                     {
-                        monitor.DisposeAllReceivers();
-                        Repaint();
+                        try
+                        {
+                            monitor.DisposeAllReceivers();
+                            if (Event.current?.type != EventType.Repaint && Event.current?.type != EventType.Layout)
+                            {
+                                Repaint();
+                            }
+                        }
+                        catch (System.Exception e)
+                        {
+                            Debug.LogError($"[SignalReceiverMonitor] Error disposing all receivers: {e}");
+                        }
                     }
                 }
-
+            }
+            finally
+            {
                 EditorGUILayout.EndHorizontal();
             }
-
-            EditorGUILayout.Space();
         }
 
         // Custom header
         protected override void OnHeaderGUI()
         {
-            var monitor = (SignalReceiverMonitor)target;
-            var receiversCount = monitor.ActiveReceiversCount;
-
-            GUILayout.BeginVertical();
-
-            // Default header
-            base.OnHeaderGUI();
-
-            // Custom status bar
-            var statusColor = receiversCount > 0 ? Color.green : Color.grey;
-            var originalColor = GUI.color;
-            GUI.color = statusColor;
-
-            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-            GUI.color = originalColor;
-
-            GUILayout.Label($"📡 {receiversCount} Active Subscriptions", EditorStyles.boldLabel);
-
-            if (receiversCount > 0)
+            try
             {
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("🗑️", GUILayout.Width(25), GUILayout.Height(18)))
+                var monitor = (SignalReceiverMonitor)target;
+                if (monitor == null) return;
+
+                var receiversCount = monitor.ActiveReceiversCount;
+
+                GUILayout.BeginVertical();
+
+                try
                 {
-                    monitor.DisposeAllReceivers();
+                    // Default header
+                    base.OnHeaderGUI();
+
+                    // Custom status bar
+                    var statusColor = receiversCount > 0 ? Color.green : Color.grey;
+                    var originalColor = GUI.color;
+                    GUI.color = statusColor;
+
+                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+
+                    try
+                    {
+                        GUI.color = originalColor;
+
+                        GUILayout.Label($"📡 {receiversCount} Active Subscriptions", EditorStyles.boldLabel);
+
+                        if (receiversCount > 0)
+                        {
+                            GUILayout.FlexibleSpace();
+                            if (GUILayout.Button("🗑️", GUILayout.Width(25), GUILayout.Height(18)))
+                            {
+                                try
+                                {
+                                    monitor.DisposeAllReceivers();
+                                }
+                                catch (System.Exception e)
+                                {
+                                    Debug.LogError($"[SignalReceiverMonitor] Error disposing receivers from header: {e}");
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+                finally
+                {
+                    GUILayout.EndVertical();
                 }
             }
-
-            EditorGUILayout.EndHorizontal();
-            GUILayout.EndVertical();
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SignalReceiverMonitor] OnHeaderGUI Error: {e}");
+                // Fallback to default header
+                base.OnHeaderGUI();
+            }
         }
     }
 }
