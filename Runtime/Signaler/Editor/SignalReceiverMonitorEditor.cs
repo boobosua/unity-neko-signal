@@ -33,11 +33,11 @@ namespace NekoSignal
 
                 if (receiversCount == 0)
                 {
-                    EditorGUILayout.LabelField("🎉 No active signal subscriptions", EditorStyles.centeredGreyMiniLabel);
+                    EditorGUILayout.LabelField("No active signal subscriptions", EditorStyles.centeredGreyMiniLabel);
                 }
                 else
                 {
-                    EditorGUILayout.LabelField($"Automatic cleanup on GameObject destruction", EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField("Automatic cleanup on GameObject destruction", EditorStyles.miniLabel);
                 }
                 EditorGUILayout.EndVertical();
 
@@ -94,24 +94,30 @@ namespace NekoSignal
                     EditorGUILayout.EndHorizontal();
                 }
 
-                // Table-style layout
-                var tableStyle = new GUIStyle(EditorStyles.helpBox);
+                // Table-style layout with clean borders
+                var tableStyle = new GUIStyle(EditorStyles.helpBox)
+                {
+                    padding = new RectOffset(8, 8, 8, 8)
+                };
                 EditorGUILayout.BeginVertical(tableStyle);
 
                 try
                 {
-                    // Table header
+                    // Table header with clean styling
                     EditorGUILayout.BeginHorizontal();
-                    var headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 11 };
-                    EditorGUILayout.LabelField("", headerStyle, GUILayout.Width(20)); // Status icon
+                    var headerStyle = new GUIStyle(EditorStyles.boldLabel)
+                    {
+                        fontSize = 11,
+                        alignment = TextAnchor.MiddleLeft
+                    };
                     EditorGUILayout.LabelField("#", headerStyle, GUILayout.Width(30));
                     EditorGUILayout.LabelField("Callback Information", headerStyle);
                     EditorGUILayout.LabelField("Status", headerStyle, GUILayout.Width(60));
                     EditorGUILayout.EndHorizontal();
 
-                    // Separator line
+                    // Clean separator line
                     var separatorRect = GUILayoutUtility.GetRect(0, 1);
-                    EditorGUI.DrawRect(separatorRect, new Color(0.5f, 0.5f, 0.5f, 0.5f));
+                    EditorGUI.DrawRect(separatorRect, new Color(0.5f, 0.5f, 0.5f, 0.3f));
 
                     // Table rows
                     int startIndex = _currentPage * ITEMS_PER_PAGE;
@@ -149,30 +155,21 @@ namespace NekoSignal
         {
             var (callbackInfo, isActive) = receiver;
 
-            // Alternating row colors
+            // Clean alternating row colors
             var bgColor = (globalIndex - startIndex) % 2 == 0 ?
-                new Color(0f, 0f, 0f, 0.05f) :
-                new Color(0f, 0f, 0f, 0.1f);
-
-            if (!isActive)
-            {
-                bgColor = new Color(1f, 0.3f, 0.3f, 0.2f); // Red tint for inactive
-            }
+                new Color(0f, 0f, 0f, 0.03f) :
+                new Color(0f, 0f, 0f, 0.06f);
 
             var originalColor = GUI.backgroundColor;
             GUI.backgroundColor = bgColor;
 
-            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal(GUILayout.Height(20));
 
             try
             {
                 GUI.backgroundColor = originalColor;
 
-                // Status icon
-                var icon = isActive ? "✅" : "❌";
-                EditorGUILayout.LabelField(icon, GUILayout.Width(20));
-
-                // Index
+                // Index with proper spacing
                 EditorGUILayout.LabelField($"{globalIndex + 1}", GUILayout.Width(30));
 
                 // Callback info (truncated for table display)
@@ -181,16 +178,21 @@ namespace NekoSignal
                     callbackInfo ?? "Unknown";
                 EditorGUILayout.LabelField(truncatedInfo, EditorStyles.label);
 
-                // Status
-                var statusStyle = new GUIStyle(EditorStyles.miniLabel);
-                statusStyle.normal.textColor = isActive ? new Color(0.2f, 0.8f, 0.2f) : new Color(0.8f, 0.2f, 0.2f);
+                // Clean status text without coloring
                 var statusText = isActive ? "Active" : "Disposed";
-                EditorGUILayout.LabelField(statusText, statusStyle, GUILayout.Width(60));
+                EditorGUILayout.LabelField(statusText, EditorStyles.miniLabel, GUILayout.Width(60));
             }
             finally
             {
                 GUI.backgroundColor = originalColor;
                 EditorGUILayout.EndHorizontal();
+            }
+
+            // Draw subtle row divider
+            if (globalIndex - startIndex < ITEMS_PER_PAGE - 1)
+            {
+                var dividerRect = GUILayoutUtility.GetRect(0, 1);
+                EditorGUI.DrawRect(dividerRect, new Color(0.5f, 0.5f, 0.5f, 0.1f));
             }
         }
 
@@ -204,7 +206,7 @@ namespace NekoSignal
 
                 // Previous button
                 GUI.enabled = _currentPage > 0;
-                if (GUILayout.Button("◀ Previous", GUILayout.Width(80), GUILayout.Height(20)))
+                if (GUILayout.Button("Previous", EditorStyles.miniButton, GUILayout.Width(80), GUILayout.Height(20)))
                 {
                     _currentPage--;
                 }
@@ -220,7 +222,7 @@ namespace NekoSignal
 
                 // Next button
                 GUI.enabled = _currentPage < totalPages - 1;
-                if (GUILayout.Button("Next ▶", GUILayout.Width(80), GUILayout.Height(20)))
+                if (GUILayout.Button("Next", EditorStyles.miniButton, GUILayout.Width(80), GUILayout.Height(20)))
                 {
                     _currentPage++;
                 }
@@ -238,7 +240,7 @@ namespace NekoSignal
 
             try
             {
-                if (GUILayout.Button("🔄 Refresh", GUILayout.Height(25)))
+                if (GUILayout.Button("Refresh", EditorStyles.miniButton, GUILayout.Height(25)))
                 {
                     // Only repaint if not in layout/repaint event to prevent loops
                     if (Event.current?.type != EventType.Repaint && Event.current?.type != EventType.Layout)
@@ -247,7 +249,7 @@ namespace NekoSignal
                     }
                 }
 
-                if (GUILayout.Button("🗑️ Dispose All", GUILayout.Height(25)))
+                if (GUILayout.Button("Dispose All", EditorStyles.miniButton, GUILayout.Height(25)))
                 {
                     if (EditorUtility.DisplayDialog("Dispose All Receivers",
                         $"Are you sure you want to dispose all {receiversCount} signal receivers?",
@@ -292,22 +294,16 @@ namespace NekoSignal
                     base.OnHeaderGUI();
 
                     // Custom status bar
-                    var statusColor = receiversCount > 0 ? Color.green : Color.grey;
-                    var originalColor = GUI.color;
-                    GUI.color = statusColor;
-
                     EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
 
                     try
                     {
-                        GUI.color = originalColor;
-
-                        GUILayout.Label($"📡 {receiversCount} Active Subscriptions", EditorStyles.boldLabel);
+                        GUILayout.Label($"{receiversCount} Active Subscriptions", EditorStyles.boldLabel);
 
                         if (receiversCount > 0)
                         {
                             GUILayout.FlexibleSpace();
-                            if (GUILayout.Button("🗑️", GUILayout.Width(25), GUILayout.Height(18)))
+                            if (GUILayout.Button("Dispose All", EditorStyles.miniButton, GUILayout.Width(80), GUILayout.Height(18)))
                             {
                                 try
                                 {

@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using NekoLib.Extensions;
-using NekoLib.Utilities;
+using NekoLib.Core;
+
 
 #if UNITY_EDITOR
 using System.Linq;
@@ -158,7 +159,7 @@ namespace NekoSignal
             // Clear all signals when exiting play mode
             if (state == PlayModeStateChange.ExitingPlayMode)
             {
-                Debug.Log("[SignalBroadcaster] Clearing all signal channels on play mode exit");
+                Debug.Log("[SignalBroadcaster] Clearing all signal channels on play mode exit.");
                 UnsubscribeAll();
             }
         }

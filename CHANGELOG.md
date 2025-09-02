@@ -1,3 +1,10 @@
+## [1.0.3] - 2025-09-02
+
+### New Tracker Designs
+
+- Remodel the Signal Tracker Window.
+- Remodel the Signal Receiver Monitor Window.
+
 ## [1.0.2] - 2025-08-23
 
 ### Refactor Colors
