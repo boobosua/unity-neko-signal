@@ -4,7 +4,6 @@ using UnityEngine;
 using NekoLib.Extensions;
 using NekoLib.Core;
 
-
 #if UNITY_EDITOR
 using System.Linq;
 using UnityEditor;
@@ -23,13 +22,13 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalBroadcaster] Cannot subscribe with null owner");
+                Debug.LogWarning("[SignalBroadcaster] Cannot subscribe with null owner.");
                 return;
             }
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.GA)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -58,13 +57,13 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalBroadcaster] Cannot unsubscribe with null owner");
+                Debug.LogWarning("[SignalBroadcaster] Cannot unsubscribe with null owner.");
                 return;
             }
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.GA)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -89,7 +88,7 @@ namespace NekoSignal
                 {
                     channel.Clear();
                     _signalChannels.Remove(type);
-                    Debug.Log($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Swatch.VR)}. Channel cleared.");
+                    Debug.Log($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Swatch.VR)}.");
                 }
             }
         }
@@ -101,7 +100,7 @@ namespace NekoSignal
         {
             if (signal == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.GA)}");
+                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -308,7 +307,7 @@ namespace NekoSignal
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Swatch.GA)}: {ex}");
+                Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Swatch.VR)}: {ex}");
             }
         }
 

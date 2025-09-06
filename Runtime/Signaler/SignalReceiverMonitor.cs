@@ -17,7 +17,7 @@ namespace NekoSignal
         {
             if (receiver == null)
             {
-                Debug.LogWarning("[SignalReceiverMonitor] Cannot add null receiver");
+                Debug.LogWarning("[SignalReceiverMonitor] Cannot add null receiver.");
                 return;
             }
 
@@ -34,7 +34,7 @@ namespace NekoSignal
         {
             if (callback == null)
             {
-                Debug.LogWarning("[SignalReceiverMonitor] Cannot remove null receiver");
+                Debug.LogWarning("[SignalReceiverMonitor] Cannot remove null receiver.");
                 return;
             }
 

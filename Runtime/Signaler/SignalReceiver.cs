@@ -13,7 +13,7 @@ namespace NekoSignal
         {
             if (unsubscribeAction == null)
             {
-                Debug.LogWarning("[SignalReceiver] Unsubscribe action is null");
+                Debug.LogWarning("[SignalReceiver] Unsubscribe action is null.");
                 return;
             }
 

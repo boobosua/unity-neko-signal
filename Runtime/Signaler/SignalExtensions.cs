@@ -68,7 +68,7 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalExtensions] Cannot dispose receivers for null MonoBehaviour");
+                Debug.LogWarning("[SignalExtensions] Cannot dispose receivers for null MonoBehaviour.");
                 return;
             }
 

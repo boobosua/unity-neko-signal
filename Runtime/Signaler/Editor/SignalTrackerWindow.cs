@@ -15,7 +15,6 @@ namespace NekoSignal
             GetWindow<SignalTrackerWindow>("Signal Tracker");
         }
 
-        private int _selectedTab = 0;
         private Vector2 _scrollPosition;
         private string _searchFilter = string.Empty;
         private readonly Dictionary<Type, bool> _foldoutStates = new();
