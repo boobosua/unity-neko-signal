@@ -1,7 +1,7 @@
 {
   "name": "com.nekoindie.nekounity.signal",
-  "version": "1.0.3",
-  "displayName": "NekoSignal",
+  "version": "1.2.0",
+  "displayName": "Neko Signal",
   "description": "A simple signal system for Unity.",
   "unity": "2020.3",
   "dependencies": {

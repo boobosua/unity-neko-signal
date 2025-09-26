@@ -112,6 +112,24 @@ namespace NekoSignal
         }
 
         /// <summary>
+        /// Publish a signal only to subscribers whose owner passes all filters.
+        /// </summary>
+        public static void Publish<T>(T signal, params ISignalFilter[] filters) where T : ISignal
+        {
+            if (signal == null)
+            {
+                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
+                return;
+            }
+
+            var type = typeof(T);
+            if (_signalChannels.TryGetValue(type, out var channel))
+            {
+                ((SignalChannel<T>)channel).PublishFiltered(signal, filters);
+            }
+        }
+
+        /// <summary>
         /// Manually unsubscribes all receivers for a specific signal type.
         /// </summary>
         public static void UnsubscribeAllOfType<T>() where T : ISignal
@@ -268,9 +286,7 @@ namespace NekoSignal
     internal sealed class SignalChannel<T> : ISignalChannel where T : ISignal
     {
         private Action<T> _subscribers;
-#if UNITY_EDITOR
         private readonly Dictionary<Delegate, MonoBehaviour> _subscriberOwners = new();
-#endif
 
         public void AddCallback(Action<T> callback)
         {
@@ -280,26 +296,21 @@ namespace NekoSignal
         public void AddCallback(Action<T> callback, MonoBehaviour owner)
         {
             _subscribers += callback;
-#if UNITY_EDITOR
             if (owner != null)
             {
                 _subscriberOwners[callback] = owner;
             }
-#endif
         }
 
         public void RemoveCallback(Action<T> callback)
         {
             _subscribers -= callback;
-#if UNITY_EDITOR
             _subscriberOwners.Remove(callback);
-#endif
         }
 
         public void Publish(T signal)
         {
-            if (_subscribers == null)
-                return;
+            if (_subscribers == null) return;
 
             try
             {
@@ -308,6 +319,46 @@ namespace NekoSignal
             catch (Exception ex)
             {
                 Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Swatch.VR)}: {ex}");
+            }
+        }
+
+        public void PublishFiltered(T signal, ISignalFilter[] filters)
+        {
+            if (_subscribers == null) return;
+
+            // If you store subscribers as a multicast delegate:
+            var invocationList = _subscribers.GetInvocationList();
+            for (int i = 0; i < invocationList.Length; i++)
+            {
+                if (invocationList[i] is Action<T> cb &&
+                    _subscriberOwners.TryGetValue(cb, out var owner) &&
+                    owner != null)
+                {
+                    bool pass = true;
+                    if (filters != null)
+                    {
+                        for (int f = 0; f < filters.Length; f++)
+                        {
+                            if (!filters[f].Evaluate(owner))
+                            {
+                                pass = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (pass)
+                    {
+                        try
+                        {
+                            cb?.Invoke(signal);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[SignalChannel] Exception in filtered subscriber for {typeof(T).Name}: {ex}");
+                        }
+                    }
+                }
             }
         }
 
@@ -322,9 +373,7 @@ namespace NekoSignal
         public void Clear()
         {
             _subscribers = null;
-#if UNITY_EDITOR
             _subscriberOwners.Clear();
-#endif
         }
 
 #if UNITY_EDITOR

@@ -2,19 +2,6 @@
 
 A lightweight, type-safe event system for Unity that provides decoupled communication between game objects and systems.
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Usage Examples](#usage-examples)
-  - [Creating Signals](#creating-signals)
-  - [Subscribing and Publishing](#subscribing-and-publishing)
-  - [Manual Unsubscription](#manual-unsubscription)
-- [Signal Tracker](#signal-tracker)
-- [Memory Management](#memory-management)
-- [Requirements](#requirements)
-
 ## Installation
 
 ### Via Git URL
@@ -33,61 +20,103 @@ https://github.com/boobosua/unity-neko-signal.git
 
 ## Features
 
-- **Type-Safe**: Compile-time signal type checking
-- **Automatic Cleanup**: Signals are automatically unsubscribed when GameObjects are destroyed
-- **Lambda Support**: Subscribe with lambda expressions for quick event handling
-- **Memory Efficient**: No boxing/unboxing, minimal allocation overhead
-- **Editor Tools**: Built-in Signal Tracker window for debugging and monitoring
-- **Thread-Safe**: Safe to use from any thread (publishing happens on main thread)
+## What is NekoSignal?
+
+NekoSignal is a Unity package for sending and receiving strongly-typed signals (events) between scripts. It supports attribute-based handlers, automatic binding, and flexible filtering for signal delivery.
 
 ## Quick Start
+
+## Best Practices
+
+- Define signals as `public readonly struct` implementing `ISignal` for immutability and performance.
+- Define filters as `public sealed class` implementing `ISignalFilter` if you do not need to extend them further.
+- Use `[OnSignal]` on private methods for signal handlers and bind with `SignalHub.Bind(this)` in `OnEnable`.
 
 1. **Create a signal structure**:
 
 ```csharp
-public struct PlayerHealthChanged : ISignal
+public readonly struct PlayerHealthChanged : ISignal
 {
     public int newHealth;
     public int maxHealth;
 }
 ```
 
-2. **Subscribe to signals**:
+2. **Attribute-based subscription**:
 
 ```csharp
+using NekoSignal;
+
 public class UIHealthBar : MonoBehaviour
 {
-    private void OnEnable()
-    {
-        this.Subscribe<PlayerHealthChanged>(OnHealthChanged);
-    }
-
+    [OnSignal]
     private void OnHealthChanged(PlayerHealthChanged signal)
     {
-        // Update health bar UI
         healthBar.fillAmount = (float)signal.newHealth / signal.maxHealth;
+    }
+
+    private void OnEnable()
+    {
+        SignalHub.Bind(this); // Automatically binds all [OnSignal] methods
     }
 }
 ```
 
-3. **Publish signals**:
+3. **Publish signals with filters**:
 
 ```csharp
+using NekoSignal;
+
 public class Player : MonoBehaviour
 {
     private void TakeDamage(int damage)
     {
         health -= damage;
-        this.Publish(new PlayerHealthChanged
-        {
-            newHealth = health,
-            maxHealth = maxHealth
-        });
+        // Publish with filters (shorthand)
+        this.Publish(
+            new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth },
+            new OwnerIsActiveFilter(),
+            new CustomTeamFilter(teamId)
+        );
     }
 }
 ```
 
 ## Usage Examples
+
+### Creating Custom Signal Filters
+
+You can extend `ISignalFilter` to create your own logic for filtering which subscribers receive a published signal. This is useful for targeting specific listeners based on custom rules (e.g., team membership, object state, etc).
+
+**Example: Only allow listeners on a specific team to receive the signal**
+
+```csharp
+using NekoSignal;
+using UnityEngine;
+
+public sealed class TeamFilter : ISignalFilter
+{
+    private readonly int _teamId;
+
+    public TeamFilter(int teamId)
+    {
+        _teamId = teamId;
+    }
+
+    public bool Evaluate(MonoBehaviour owner)
+    {
+        // Example: Assume owner has a TeamMember component
+        var member = owner.GetComponent<TeamMember>();
+        return member != null && member.TeamId == _teamId;
+    }
+}
+
+// Usage when publishing a signal (shorthand):
+new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth }
+    .SetEmitter(this)
+    .Require(new TeamFilter(teamId))
+    .Publish();
+```
 
 ### Creating Signals
 
@@ -95,17 +124,17 @@ Signals are simple data structures implementing `ISignal`:
 
 ```csharp
 // Simple event signal
-public struct GameStarted : ISignal { }
+public readonly struct GameStarted : ISignal { }
 
 // Signal with data
-public struct PlayerHealthChanged : ISignal
+public readonly struct PlayerHealthChanged : ISignal
 {
     public int newHealth;
     public int maxHealth;
 }
 
 // Complex signal with multiple properties
-public struct ItemCollected : ISignal
+public readonly struct ItemCollected : ISignal
 {
     public string itemId;
     public Vector3 position;
@@ -117,35 +146,38 @@ public struct ItemCollected : ISignal
 ### Subscribing and Publishing
 
 ```csharp
+using NekoSignal;
+
 public class Player : MonoBehaviour
 {
     private void OnEnable()
     {
-        // Subscribe to signals
-        this.Subscribe<GameStarted>(OnGameStarted);
+        SignalHub.Bind(this); // Binds all [OnSignal] methods
+    }
 
-        // Lambda expressions for simple logic
-        this.Subscribe<ItemCollected>(signal =>
-        {
-            ShowItemPopup(signal.itemId, signal.position);
-        });
+    [OnSignal]
+    private void OnGameStarted(GameStarted signal)
+    {
+        InitializePlayer();
+    }
+
+    [OnSignal(typeof(ItemCollected))] // Explicit signal type
+    private void HandleItem(object signal)
+    {
+        var item = (ItemCollected)signal;
+        ShowItemPopup(item.itemId, item.position);
     }
 
     private void TakeDamage(int damage)
     {
         health -= damage;
 
-        // Publish signals
-        this.Publish(new PlayerHealthChanged
-        {
-            newHealth = health,
-            maxHealth = maxHealth
-        });
-    }
-
-    private void OnGameStarted(GameStarted signal)
-    {
-        InitializePlayer();
+        // Publish with filters (shorthand)
+        this.Publish(
+            new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth },
+            new OwnerIsActiveFilter(),
+            new CustomTeamFilter(teamId)
+        );
     }
 }
 ```
@@ -160,6 +192,7 @@ public class TemporaryListener : MonoBehaviour
     private void OnEnable()
     {
         gameStartedHandler = OnGameStarted;
+        // Subscribe (shorthand)
         this.Subscribe<GameStarted>(gameStartedHandler);
     }
 
@@ -178,44 +211,14 @@ public class TemporaryListener : MonoBehaviour
 
 ## Signal Tracker
 
-Monitor and debug your signals in real-time:
-
-1. **Open the Signal Tracker**: `Tools > Neko Indie > Signal Tracker`
-2. **View active signals**: See all signal types and their subscribers
-3. **Real-time monitoring**: Auto-refresh shows live subscription changes
-4. **Debug features**:
-   - Click GameObjects to select them in hierarchy
-   - See method names and lambda expressions
-   - Clear all signals for testing
-   - Filter and search signals
-
-**Signal Tracker Features**:
-
-- 📊 Live subscriber count and status
-- 🔍 Search and filter capabilities
-- 🎯 Clickable GameObjects for quick navigation
-- 🧹 Manual cleanup tools
-- ⚡ Real-time refresh with configurable rate
+You can open the Signal Tracker window in Unity via `Tools > Neko Indie > Signal Tracker` to view active signals and subscribers.
 
 ## Memory Management
 
-NekoSignal handles memory management automatically:
-
-- **Automatic Cleanup**: Signals are unsubscribed when GameObjects are destroyed
-- **Lambda Handling**: Lambda expressions are properly tracked and cleaned up
-- **No Memory Leaks**: Built-in protection against common event system pitfalls
-- **Efficient Storage**: Uses multicast delegates for optimal performance
-
-**Best Practices**:
-
-- Subscribe in `OnEnable`, unsubscribe happens automatically
-- Use lambda expressions for simple, local event handling
-- Use method references for complex logic that might be reused
-- Monitor with Signal Tracker during development
+Signal subscriptions are automatically cleaned up when GameObjects are destroyed. `[OnSignal]` methods are auto-unsubscribed.
 
 ## Requirements
 
-- Unity 2020.3 or later
-- Instal NekoLib library
+Requires Unity 2020.3 or later and NekoLib.
 
 ---

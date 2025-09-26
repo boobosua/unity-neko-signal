@@ -1,3 +1,11 @@
+## [1.2.0] - 2025-09-26
+
+### New Filter and Binding Features
+
+- Added `ISignalFilter` interface for custom signal filtering.
+- Updated `Publish` method to accept filters.
+- New Binding options.
+
 ## [1.0.3] - 2025-09-02
 
 ### New Tracker Designs

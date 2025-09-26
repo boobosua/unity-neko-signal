@@ -30,6 +30,23 @@ namespace NekoSignal
         }
 
         /// <summary>
+        /// Publishes a signal of the specified type with filters.
+        /// </summary>
+        public static void Publish<T>(this MonoBehaviour owner, T signal, params ISignalFilter[] filters) where T : ISignal
+        {
+            SignalBroadcaster.Publish(signal, filters);
+        }
+
+        /// <summary>
+        /// Subscribes dynamically and returns an Action you can call to unsubscribe.
+        /// </summary>
+        public static Action Listen<T>(this MonoBehaviour owner, Action<T> callback) where T : ISignal
+        {
+            SignalBroadcaster.Subscribe(owner, callback);
+            return () => SignalBroadcaster.Unsubscribe(owner, callback);
+        }
+
+        /// <summary>
         /// Manually unsubscribes all receivers for a specific signal type.
         /// </summary>
         public static void UnsubscribeAllOfType<T>(this MonoBehaviour owner) where T : ISignal
