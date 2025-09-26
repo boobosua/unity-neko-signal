@@ -1,4 +1,4 @@
-# NekoSignal
+# Neko Signal
 
 A lightweight, type-safe event system for Unity that provides decoupled communication between game objects and systems.
 

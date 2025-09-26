@@ -1,3 +1,9 @@
+## [1.2.1] - 2025-09-26
+
+### Channel Improvements
+
+- Change invocation from delegate to list of actions.
+
 ## [1.2.0] - 2025-09-26
 
 ### New Filter and Binding Features

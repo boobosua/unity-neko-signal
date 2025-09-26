@@ -285,55 +285,110 @@ namespace NekoSignal
 
     internal sealed class SignalChannel<T> : ISignalChannel where T : ISignal
     {
-        private Action<T> _subscribers;
-        private readonly Dictionary<Delegate, MonoBehaviour> _subscriberOwners = new();
-
-        public void AddCallback(Action<T> callback)
+        private struct Sub
         {
-            _subscribers += callback;
+            public Action<T> Callback;
+            public MonoBehaviour Owner;
         }
+
+        private readonly List<Sub> _subs = new();
+
+        // When invoking, we defer removals to avoid invalidating indices.
+        private bool _isInvoking;
+        private readonly List<int> _pendingRemovals = new();
+
+        public int SubscriberCount => _subs.Count;
 
         public void AddCallback(Action<T> callback, MonoBehaviour owner)
         {
-            _subscribers += callback;
-            if (owner != null)
-            {
-                _subscriberOwners[callback] = owner;
-            }
+            if (callback == null || owner == null) return;
+            _subs.Add(new Sub { Callback = callback, Owner = owner });
         }
 
         public void RemoveCallback(Action<T> callback)
         {
-            _subscribers -= callback;
-            _subscriberOwners.Remove(callback);
+            if (callback == null) return;
+
+            for (int i = 0; i < _subs.Count; i++)
+            {
+                if (_subs[i].Callback == callback)
+                {
+                    if (_isInvoking)
+                    {
+                        _pendingRemovals.Add(i);
+                    }
+                    else
+                    {
+                        int last = _subs.Count - 1;
+                        _subs[i] = _subs[last];
+                        _subs.RemoveAt(last);
+                    }
+                    return;
+                }
+            }
         }
 
+        public void Clear()
+        {
+            _subs.Clear();
+            _pendingRemovals.Clear();
+        }
+
+        /// <summary>Unfiltered publish: invoke every active subscriber (GC-free).</summary>
         public void Publish(T signal)
         {
-            if (_subscribers == null) return;
+            if (_subs.Count == 0) return;
 
+            _isInvoking = true;
             try
             {
-                _subscribers.Invoke(signal);
+                for (int i = 0; i < _subs.Count; i++)
+                {
+                    var cb = _subs[i].Callback;
+                    var owner = _subs[i].Owner;
+
+                    if (!owner)
+                    {
+                        _pendingRemovals.Add(i);
+                        continue;
+                    }
+
+                    try
+                    {
+                        cb?.Invoke(signal);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[SignalChannel<{typeof(T).Name}>] Exception in subscriber ({owner.name}): {ex}");
+                    }
+                }
             }
-            catch (Exception ex)
+            finally
             {
-                Debug.LogError($"[SignalChannel] Exception in signal subscriber for {typeof(T).Name.Colorize(Swatch.VR)}: {ex}");
+                _isInvoking = false;
+                FlushPendingRemovals();
             }
         }
 
+        /// <summary>Filtered publish: invoke only subscribers whose owner passes all filters (GC-free).</summary>
         public void PublishFiltered(T signal, ISignalFilter[] filters)
         {
-            if (_subscribers == null) return;
+            if (_subs.Count == 0) return;
 
-            // If you store subscribers as a multicast delegate:
-            var invocationList = _subscribers.GetInvocationList();
-            for (int i = 0; i < invocationList.Length; i++)
+            _isInvoking = true;
+            try
             {
-                if (invocationList[i] is Action<T> cb &&
-                    _subscriberOwners.TryGetValue(cb, out var owner) &&
-                    owner != null)
+                for (int i = 0; i < _subs.Count; i++)
                 {
+                    var cb = _subs[i].Callback;
+                    var owner = _subs[i].Owner;
+
+                    if (!owner)
+                    {
+                        _pendingRemovals.Add(i);
+                        continue;
+                    }
+
                     bool pass = true;
                     if (filters != null)
                     {
@@ -346,72 +401,90 @@ namespace NekoSignal
                             }
                         }
                     }
+                    if (!pass) continue;
 
-                    if (pass)
+                    try
                     {
-                        try
-                        {
-                            cb?.Invoke(signal);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogError($"[SignalChannel] Exception in filtered subscriber for {typeof(T).Name}: {ex}");
-                        }
+                        cb?.Invoke(signal);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[SignalChannel<{typeof(T).Name}>] Exception in filtered subscriber ({owner.name}): {ex}");
                     }
                 }
             }
-        }
-
-        public int SubscriberCount
-        {
-            get
+            finally
             {
-                return _subscribers?.GetInvocationList().Length ?? 0;
+                _isInvoking = false;
+                FlushPendingRemovals();
             }
         }
 
-        public void Clear()
+        private void FlushPendingRemovals()
         {
-            _subscribers = null;
-            _subscriberOwners.Clear();
+            if (_pendingRemovals.Count == 0) return;
+
+            // sort + unique
+            _pendingRemovals.Sort();
+            int write = 0;
+            for (int r = 1; r < _pendingRemovals.Count; r++)
+                if (_pendingRemovals[r] != _pendingRemovals[write])
+                    _pendingRemovals[++write] = _pendingRemovals[r];
+            int count = write + 1;
+
+            // remove from highest to lowest indices
+            for (int idx = count - 1; idx >= 0; idx--)
+            {
+                int i = _pendingRemovals[idx];
+                if (i >= 0 && i < _subs.Count)
+                {
+                    int last = _subs.Count - 1;
+                    _subs[i] = _subs[last];
+                    _subs.RemoveAt(last);
+                }
+            }
+            _pendingRemovals.Clear();
         }
 
 #if UNITY_EDITOR
         public IEnumerable<SignalSubscriberInfo> GetSubscriberInfo()
         {
-            if (_subscribers == null)
-                return Enumerable.Empty<SignalSubscriberInfo>();
+            // Fast path: nothing to report
+            if (_subs == null || _subs.Count == 0)
+                return Array.Empty<SignalSubscriberInfo>();
 
-            var invocationList = _subscribers.GetInvocationList();
+            // Clean out dead/destroyed owners first
+            CleanupStaleSubscribers();
 
-            // Clean up stale owner references before creating subscriber info
-            CleanupStaleOwnerReferences(invocationList);
-
-            return invocationList.Select(handler => CreateSubscriberInfo(handler, typeof(T), _subscriberOwners.GetValueOrDefault(handler)));
+            // Build a compact array to avoid deferred exec and LINQ allocs
+            var result = new SignalSubscriberInfo[_subs.Count];
+            for (int i = 0; i < _subs.Count; i++)
+            {
+                var cb = _subs[i].Callback;
+                var owner = _subs[i].Owner;
+                result[i] = CreateSubscriberInfo(cb, typeof(T), owner);
+            }
+            return result;
         }
 
-        private void CleanupStaleOwnerReferences(Delegate[] currentHandlers)
+        /// <summary>
+        /// Removes any list entries whose owner is null/destroyed (Unity null).
+        /// Safe to call from editor queries; avoids stale entries in the inspector/window.
+        /// </summary>
+        private void CleanupStaleSubscribers()
         {
-            // Create a set of current handlers for fast lookup
-            var currentHandlerSet = new HashSet<Delegate>(currentHandlers);
+            if (_isInvoking) return;
 
-            // Find and remove stale entries (handlers that are no longer in the invocation list)
-            var staleKeys = _subscriberOwners.Keys.Where(key => !currentHandlerSet.Contains(key)).ToList();
+            if (_subs == null || _subs.Count == 0) return;
 
-            foreach (var staleKey in staleKeys)
+            // Iterate backwards so we can RemoveAt safely.
+            for (int i = _subs.Count - 1; i >= 0; i--)
             {
-                _subscriberOwners.Remove(staleKey);
-            }
-
-            // Also remove entries where the owner MonoBehaviour is null/destroyed
-            var invalidOwners = _subscriberOwners.Where(kvp =>
-                kvp.Value == null || // C# null
-                !kvp.Value // Unity null check for destroyed objects
-            ).Select(kvp => kvp.Key).ToList();
-
-            foreach (var invalidKey in invalidOwners)
-            {
-                _subscriberOwners.Remove(invalidKey);
+                var owner = _subs[i].Owner;
+                if (!owner) // Unity null (destroyed) or C# null
+                {
+                    _subs.RemoveAt(i);
+                }
             }
         }
 
