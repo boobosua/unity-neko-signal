@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using NekoLib.Extensions;
 using NekoLib.Core;
+using NekoLib.Logger;
+
 
 #if UNITY_EDITOR
 using System.Linq;
@@ -11,6 +13,7 @@ using UnityEditor;
 
 namespace NekoSignal
 {
+    [UnityEngine.Scripting.Preserve]
     public static class SignalBroadcaster
     {
         private static readonly Dictionary<Type, ISignalChannel> _signalChannels = new();
@@ -22,13 +25,13 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalBroadcaster] Cannot subscribe with null owner.");
+                Log.Warn("[SignalBroadcaster] Cannot subscribe with null owner.");
                 return;
             }
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
+                Log.Warn($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -57,13 +60,13 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalBroadcaster] Cannot unsubscribe with null owner.");
+                Log.Warn("[SignalBroadcaster] Cannot unsubscribe with null owner.");
                 return;
             }
 
             if (callback == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
+                Log.Warn($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -88,7 +91,7 @@ namespace NekoSignal
                 {
                     channel.Clear();
                     _signalChannels.Remove(type);
-                    Debug.Log($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Swatch.VR)}.");
+                    Log.Info($"[SignalBroadcaster] All subscribers removed for signal type {type.Name.Colorize(Swatch.VR)}.");
                 }
             }
         }
@@ -100,7 +103,7 @@ namespace NekoSignal
         {
             if (signal == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
+                Log.Warn($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -118,7 +121,7 @@ namespace NekoSignal
         {
             if (signal == null)
             {
-                Debug.LogWarning($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
+                Log.Warn($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
                 return;
             }
 
@@ -176,7 +179,7 @@ namespace NekoSignal
             // Clear all signals when exiting play mode
             if (state == PlayModeStateChange.ExitingPlayMode)
             {
-                Debug.Log("[SignalBroadcaster] Clearing all signal channels on play mode exit.");
+                Log.Info("[SignalBroadcaster] Clearing all signal channels on play mode exit.");
                 UnsubscribeAll();
             }
         }
@@ -359,7 +362,7 @@ namespace NekoSignal
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError($"[SignalChannel<{typeof(T).Name}>] Exception in subscriber ({owner.name}): {ex}");
+                        Log.Error($"[SignalChannel<{typeof(T).Name}>] Exception in subscriber ({owner.name}): {ex}");
                     }
                 }
             }
@@ -409,7 +412,7 @@ namespace NekoSignal
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError($"[SignalChannel<{typeof(T).Name}>] Exception in filtered subscriber ({owner.name}): {ex}");
+                        Log.Error($"[SignalChannel<{typeof(T).Name}>] Exception in filtered subscriber ({owner.name}): {ex}");
                     }
                 }
             }

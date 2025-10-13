@@ -32,6 +32,8 @@ NekoSignal is a Unity package for sending and receiving strongly-typed signals (
 - Define filters as `public sealed class` implementing `ISignalFilter` if you do not need to extend them further.
 - Use `[OnSignal]` on private methods for signal handlers and bind with `SignalHub.Bind(this)` in `OnEnable`.
 
+> **Warning:** Do not use code stripping (such as Unity's Managed Stripping Level set to Medium or High, or IL2CPP stripping) when using the `SignalHub.Bind(this)` and `[OnSignal]` attribute approach. Stripping may remove private methods marked with `[OnSignal]`, causing signal handlers to stop working at runtime. To ensure correct behavior, set Managed Stripping Level to Disabled or add appropriate link.xml files to preserve your signal handler methods.
+
 1. **Create a signal structure**:
 
 ```csharp

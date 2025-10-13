@@ -1,5 +1,5 @@
 using System;
-using UnityEngine;
+using NekoLib.Logger;
 
 namespace NekoSignal
 {
@@ -13,7 +13,7 @@ namespace NekoSignal
         {
             if (unsubscribeAction == null)
             {
-                Debug.LogWarning("[SignalReceiver] Unsubscribe action is null.");
+                Log.Warn("[SignalReceiver] Unsubscribe action is null.");
                 return;
             }
 

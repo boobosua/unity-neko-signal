@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NekoLib.Logger;
 using UnityEngine;
 
 namespace NekoSignal
@@ -19,7 +20,7 @@ namespace NekoSignal
         {
             if (emitter == null)
             {
-                Debug.LogWarning("[NekoSignal] EmitBy received null emitter.");
+                Log.Warn("[NekoSignal] EmitBy received null emitter.");
                 return this;
             }
             Emitter = emitter;
@@ -33,7 +34,7 @@ namespace NekoSignal
         {
             if (filter == null)
             {
-                Debug.LogWarning("[NekoSignal] Require received null filter. Ignored.");
+                Log.Warn("[NekoSignal] Require received null filter. Ignored.");
                 return this;
             }
             _filters.Add(filter);

@@ -1,11 +1,11 @@
 {
   "name": "com.nekoindie.nekounity.signal",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "displayName": "Neko Signal",
   "description": "A simple signal system for Unity.",
   "unity": "2020.3",
   "dependencies": {
-    "com.nekoindie.nekounity.lib": "1.9.4"
+    "com.nekoindie.nekounity.lib": "1.9.8"
   },
   "author": {
     "name": "Nguyen Thanh Trung",

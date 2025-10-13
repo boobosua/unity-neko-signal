@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using NekoLib.Logger;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,6 +14,7 @@ namespace NekoSignal
     /// <summary>
     /// Binds/unbinds MonoBehaviour methods marked with [OnSignal].
     /// </summary>
+    [UnityEngine.Scripting.Preserve]
     public static class SignalHub
     {
         private static readonly Dictionary<Type, List<HandlerInfo>> _cache = new();
@@ -72,7 +74,7 @@ namespace NekoSignal
                     var del = Delegate.CreateDelegate(actionType, target, handler.Method, false);
                     if (del == null)
                     {
-                        Debug.LogError($"[SignalHub] Failed to create delegate for {type.Name}.{handler.Method.Name}");
+                        Log.Error($"[SignalHub] Failed to create delegate for {type.Name}.{handler.Method.Name}");
                         continue;
                     }
 
@@ -81,7 +83,7 @@ namespace NekoSignal
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[SignalHub] Error binding {type.Name}.{handler.Method.Name}: {ex}");
+                    Log.Error($"[SignalHub] Error binding {type.Name}.{handler.Method.Name}: {ex}");
                 }
             }
 
@@ -115,7 +117,7 @@ namespace NekoSignal
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[SignalHub] Error unbinding {type.Name}.{handler.Method.Name}: {ex}");
+                    Log.Error($"[SignalHub] Error unbinding {type.Name}.{handler.Method.Name}: {ex}");
                 }
             }
 
@@ -145,7 +147,7 @@ namespace NekoSignal
                     {
                         if (parms.Length != 1)
                         {
-                            Debug.LogError($"[SignalHub] {type.Name}.{method.Name} must have exactly one parameter.");
+                            Log.Error($"[SignalHub] {type.Name}.{method.Name} must have exactly one parameter.");
                             continue;
                         }
                         sigType = parms[0].ParameterType;
@@ -154,14 +156,14 @@ namespace NekoSignal
                     {
                         if (parms.Length != 1 || parms[0].ParameterType != sigType)
                         {
-                            Debug.LogError($"[SignalHub] {type.Name}.{method.Name} must have exactly one parameter of type {sigType.Name}.");
+                            Log.Error($"[SignalHub] {type.Name}.{method.Name} must have exactly one parameter of type {sigType.Name}.");
                             continue;
                         }
                     }
 
                     if (!typeof(ISignal).IsAssignableFrom(sigType))
                     {
-                        Debug.LogError($"[SignalHub] {type.Name}.{method.Name} parameter type {sigType.Name} does not implement ISignal.");
+                        Log.Error($"[SignalHub] {type.Name}.{method.Name} parameter type {sigType.Name} does not implement ISignal.");
                         continue;
                     }
 

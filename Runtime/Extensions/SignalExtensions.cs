@@ -1,4 +1,5 @@
 using System;
+using NekoLib.Logger;
 using UnityEngine;
 
 namespace NekoSignal
@@ -85,7 +86,7 @@ namespace NekoSignal
         {
             if (owner == null)
             {
-                Debug.LogWarning("[SignalExtensions] Cannot dispose receivers for null MonoBehaviour.");
+                Log.Warn("Cannot dispose receivers for null MonoBehaviour.");
                 return;
             }
 

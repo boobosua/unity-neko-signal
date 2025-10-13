@@ -1,6 +1,8 @@
 // NekoSignal — OnSignal Attribute
 // Supports implicit and explicit usage
 using System;
+using NekoLib.Core;
+using NekoLib.Extensions;
 
 namespace NekoSignal
 {
@@ -9,6 +11,7 @@ namespace NekoSignal
     /// The method must have exactly one parameter matching the signal type.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+    [UnityEngine.Scripting.Preserve]
     public sealed class OnSignalAttribute : Attribute
     {
         public Type ExplicitSignalType { get; }
@@ -21,7 +24,7 @@ namespace NekoSignal
                 throw new ArgumentNullException(nameof(signalType));
 
             if (!typeof(ISignal).IsAssignableFrom(signalType))
-                throw new ArgumentException($"{signalType.Name} does not implement ISignal");
+                throw new ArgumentException($"{signalType.Name.Colorize(Swatch.VR)} does not implement ISignal");
 
             ExplicitSignalType = signalType;
         }
