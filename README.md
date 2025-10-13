@@ -213,7 +213,7 @@ public class TemporaryListener : MonoBehaviour
 
 ## Signal Tracker
 
-You can open the Signal Tracker window in Unity via `Tools > Neko Indie > Signal Tracker` to view active signals and subscribers.
+You can open the Signal Tracker window in Unity via `Window > Neko Indie > Signal Tracker` to view active signals and subscribers.
 
 ## Memory Management
 
