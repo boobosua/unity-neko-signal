@@ -46,48 +46,48 @@ public readonly struct PlayerHealthChanged : ISignal
 
 2. **Attribute-based subscription**:
 
-````csharp
+```csharp
 using NekoSignal;
 
 public class UIHealthBar : MonoBehaviour
 {
-    [OnSignal]
-    private void OnHealthChanged(PlayerHealthChanged signal)
-    {
-    ### Priority
-
-    NekoSignal supports simple subscription priorities. Higher priority values are invoked first. The default priority is `0`. Handlers with the same priority keep their subscription order (FIFO).
-
-    Examples:
-
-    Attribute-based handler with priority 5:
-
-    ```csharp
-    [OnSignal(typeof(PlayerHealthChanged), priority: 5)]
-    private void OnHealthChanged(PlayerHealthChanged s) { /* runs earlier */ }
-    ```
-
-    Programmatic subscription with priority:
-
-    ```csharp
-    // Subscribe with priority - higher values run earlier
-    this.Subscribe<PlayerHealthChanged>(handler, priority: 2);
-
-    // Or when dynamically listening
-    var dispose = this.Listen<PlayerHealthChanged>(handler, priority: 2);
-    ```
-
-    Priority affects dispatch order only; filters are still evaluated per-subscriber at publish time and will not change priority ordering among the subscribers that pass the filters.
-
-        healthBar.fillAmount = (float)signal.newHealth / signal.maxHealth;
-    }
-
     private void OnEnable()
     {
         SignalHub.Bind(this); // Automatically binds all [OnSignal] methods
     }
+
+    [OnSignal]
+    private void OnHealthChanged(PlayerHealthChanged signal)
+    {
+        healthBar.fillAmount = (float)signal.newHealth / signal.maxHealth;
+    }
 }
-````
+```
+
+### Priority
+
+NekoSignal supports simple subscription priorities. Higher priority values are invoked first. The default priority is `0`. Handlers with the same priority keep their subscription order (FIFO).
+
+Examples:
+
+Attribute-based handler with priority 5:
+
+```csharp
+[OnSignal(typeof(PlayerHealthChanged), priority: 5)]
+private void OnHealthChanged(PlayerHealthChanged s) { /* runs earlier */ }
+```
+
+Programmatic subscription with priority:
+
+```csharp
+// Subscribe with priority - higher values run earlier
+this.Subscribe<PlayerHealthChanged>(handler, priority: 2);
+
+// Or when dynamically listening
+var dispose = this.Listen<PlayerHealthChanged>(handler, priority: 2);
+```
+
+Priority affects dispatch order only; filters are still evaluated per-subscriber at publish time and will not change priority ordering among the subscribers that pass the filters.
 
 3. **Publish signals with filters**:
 
