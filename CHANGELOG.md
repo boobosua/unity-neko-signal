@@ -1,3 +1,10 @@
+## [1.3.1] - 2025-11-06
+
+### Rework Signal Tracker and Signal Receiver Monitor Editor
+
+- Add Log tab to Signal Tracker Editor.
+- Improve UI/UX of Signal Receiver Monitor Editor.
+
 ## [1.3.0] - 2025-11-06
 
 ### Priority Support

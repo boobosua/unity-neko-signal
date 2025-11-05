@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using NekoLib.Logger;
 using UnityEngine;
 
@@ -33,9 +34,21 @@ namespace NekoSignal
         /// <summary>
         /// Publishes a signal of the specified type.
         /// </summary>
-        public static void Publish<T>(this MonoBehaviour owner, T signal) where T : ISignal
+        public static void Publish<T>(this MonoBehaviour owner, T signal, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0) where T : ISignal
         {
+            if (owner == null)
+            {
+                SignalBroadcaster.Publish(signal);
+                return;
+            }
+#if UNITY_EDITOR
+            using (SignalLogStore.Publisher(owner, file, line))
+            {
+                SignalBroadcaster.Publish(signal);
+            }
+#else
             SignalBroadcaster.Publish(signal);
+#endif
         }
 
         /// <summary>
@@ -43,7 +56,41 @@ namespace NekoSignal
         /// </summary>
         public static void Publish<T>(this MonoBehaviour owner, T signal, params ISignalFilter[] filters) where T : ISignal
         {
+            if (owner == null)
+            {
+                SignalBroadcaster.Publish(signal, filters);
+                return;
+            }
+#if UNITY_EDITOR
+            // Capture caller info automatically via attributes on the overload without filters if needed
+            string file = null; int line = 0;
+            try
+            {
+                var st = new System.Diagnostics.StackTrace(true);
+                // Find first frame outside library to estimate caller
+                for (int i = 0; i < st.FrameCount; i++)
+                {
+                    var f = st.GetFrame(i);
+                    var m = f.GetMethod();
+                    var dt = m?.DeclaringType;
+                    var ns = dt?.Namespace ?? string.Empty;
+                    if (!string.IsNullOrEmpty(f.GetFileName()) && !ns.StartsWith("NekoSignal"))
+                    {
+                        file = f.GetFileName();
+                        line = f.GetFileLineNumber();
+                        break;
+                    }
+                }
+            }
+            catch { }
+
+            using (SignalLogStore.Publisher(owner, file, line))
+            {
+                SignalBroadcaster.Publish(signal, filters);
+            }
+#else
             SignalBroadcaster.Publish(signal, filters);
+#endif
         }
 
         /// <summary>

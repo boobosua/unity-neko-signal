@@ -4,6 +4,7 @@ using UnityEngine;
 using NekoLib.Extensions;
 using NekoLib.Core;
 using NekoLib.Logger;
+using System.Diagnostics;
 
 #if UNITY_EDITOR
 using System.Linq;
@@ -362,6 +363,11 @@ namespace NekoSignal
         {
             if (_subs.Count == 0) return;
 
+            // Editor log section
+#if UNITY_EDITOR
+            var logEntry = SignalLogStore.BeginPublish(typeof(T), signal);
+#endif
+
             _isInvoking = true;
             try
             {
@@ -369,6 +375,7 @@ namespace NekoSignal
                 {
                     var cb = _subs[i].Callback;
                     var owner = _subs[i].Owner;
+                    var prio = _subs[i].Priority;
 
                     if (!owner)
                     {
@@ -378,11 +385,37 @@ namespace NekoSignal
 
                     try
                     {
+                        double durMs = 0;
+#if UNITY_EDITOR
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
                         cb?.Invoke(signal);
+#if UNITY_EDITOR
+                        sw.Stop();
+                        durMs = sw.Elapsed.TotalMilliseconds;
+                        SignalLogStore.AddInvocation(logEntry,
+                            cb?.Method?.Name ?? "<fn>",
+                            owner ? owner.GetType().Name : "<owner>",
+                            owner ? owner.gameObject.name : "<null>",
+                            prio,
+                            durMs,
+                            false,
+                            null);
+#endif
                     }
                     catch (Exception ex)
                     {
                         Log.Error($"[SignalChannel<{typeof(T).Name}>] Exception in subscriber ({owner.name}): {ex}");
+#if UNITY_EDITOR
+                        SignalLogStore.AddInvocation(logEntry,
+                            cb?.Method?.Name ?? "<fn>",
+                            owner ? owner.GetType().Name : "<owner>",
+                            owner ? owner.gameObject.name : "<null>",
+                            prio,
+                            0,
+                            true,
+                            ex.Message);
+#endif
                     }
                 }
             }
@@ -397,6 +430,13 @@ namespace NekoSignal
         {
             if (_subs.Count == 0) return;
 
+            // Editor log section
+#if UNITY_EDITOR
+            var logEntry = SignalLogStore.BeginPublish(typeof(T), signal);
+            if (filters != null && filters.Length > 0)
+                SignalLogStore.AddFilters(logEntry, filters);
+#endif
+
             _isInvoking = true;
             try
             {
@@ -404,6 +444,7 @@ namespace NekoSignal
                 {
                     var cb = _subs[i].Callback;
                     var owner = _subs[i].Owner;
+                    var prio = _subs[i].Priority;
 
                     if (!owner)
                     {
@@ -427,11 +468,37 @@ namespace NekoSignal
 
                     try
                     {
+                        double durMs = 0;
+#if UNITY_EDITOR
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
                         cb?.Invoke(signal);
+#if UNITY_EDITOR
+                        sw.Stop();
+                        durMs = sw.Elapsed.TotalMilliseconds;
+                        SignalLogStore.AddInvocation(logEntry,
+                            cb?.Method?.Name ?? "<fn>",
+                            owner ? owner.GetType().Name : "<owner>",
+                            owner ? owner.gameObject.name : "<null>",
+                            prio,
+                            durMs,
+                            false,
+                            null);
+#endif
                     }
                     catch (Exception ex)
                     {
                         Log.Error($"[SignalChannel<{typeof(T).Name}>] Exception in filtered subscriber ({owner.name}): {ex}");
+#if UNITY_EDITOR
+                        SignalLogStore.AddInvocation(logEntry,
+                            cb?.Method?.Name ?? "<fn>",
+                            owner ? owner.GetType().Name : "<owner>",
+                            owner ? owner.gameObject.name : "<null>",
+                            prio,
+                            0,
+                            true,
+                            ex.Message);
+#endif
                     }
                 }
             }
@@ -482,7 +549,8 @@ namespace NekoSignal
             {
                 var cb = _subs[i].Callback;
                 var owner = _subs[i].Owner;
-                result[i] = CreateSubscriberInfo(cb, typeof(T), owner);
+                var prio = _subs[i].Priority;
+                result[i] = CreateSubscriberInfo(cb, typeof(T), owner, prio);
             }
             return result;
         }
@@ -508,13 +576,14 @@ namespace NekoSignal
             }
         }
 
-        private static SignalSubscriberInfo CreateSubscriberInfo(Delegate handler, Type signalType, MonoBehaviour owner)
+        private static SignalSubscriberInfo CreateSubscriberInfo(Delegate handler, Type signalType, MonoBehaviour owner, int priority)
         {
             var info = new SignalSubscriberInfo
             {
                 SignalType = signalType,
                 MethodName = handler.Method.Name,
-                IsValid = handler.Target != null
+                IsValid = handler.Target != null,
+                Priority = priority
             };
 
             // If we have owner information, use it first (but check if it's still valid)
@@ -644,6 +713,7 @@ namespace NekoSignal
         public GameObject OwnerGameObject { get; set; }
         public Type SignalType { get; set; }
         public bool IsValid { get; set; }
+        public int Priority { get; set; }
     }
 #endif
 }
