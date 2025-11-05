@@ -15,6 +15,14 @@ namespace NekoSignal
         }
 
         /// <summary>
+        /// Subscribes to a signal of the specified type with a priority. Higher values are invoked earlier.
+        /// </summary>
+        public static void Subscribe<T>(this MonoBehaviour owner, Action<T> callback, int priority) where T : ISignal
+        {
+            SignalBroadcaster.Subscribe(owner, callback, priority);
+        }
+
+        /// <summary>
         /// Unsubscribes from a signal.
         /// </summary>
         public static void Unsubscribe<T>(this MonoBehaviour owner, Action<T> callback) where T : ISignal
@@ -44,6 +52,15 @@ namespace NekoSignal
         public static Action Listen<T>(this MonoBehaviour owner, Action<T> callback) where T : ISignal
         {
             SignalBroadcaster.Subscribe(owner, callback);
+            return () => SignalBroadcaster.Unsubscribe(owner, callback);
+        }
+
+        /// <summary>
+        /// Subscribes dynamically with priority and returns an Action you can call to unsubscribe.
+        /// </summary>
+        public static Action Listen<T>(this MonoBehaviour owner, Action<T> callback, int priority) where T : ISignal
+        {
+            SignalBroadcaster.Subscribe(owner, callback, priority);
             return () => SignalBroadcaster.Unsubscribe(owner, callback);
         }
 

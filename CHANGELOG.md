@@ -1,3 +1,9 @@
+## [1.3.0] - 2025-11-06
+
+### Priority Support
+
+- Added support for subscription priorities in NekoSignal.
+
 ## [1.2.1] - 2025-09-26
 
 ### Channel Improvements

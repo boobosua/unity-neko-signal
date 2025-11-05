@@ -5,7 +5,6 @@ using NekoLib.Extensions;
 using NekoLib.Core;
 using NekoLib.Logger;
 
-
 #if UNITY_EDITOR
 using System.Linq;
 using UnityEditor;
@@ -23,6 +22,14 @@ namespace NekoSignal
         /// </summary>
         public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback) where T : ISignal
         {
+            Subscribe(owner, callback, 0);
+        }
+
+        /// <summary>
+        /// Subscribes to a signal with an explicit priority. Higher values are invoked earlier.
+        /// </summary>
+        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : ISignal
+        {
             if (owner == null)
             {
                 Log.Warn("[SignalBroadcaster] Cannot subscribe with null owner.");
@@ -39,12 +46,12 @@ namespace NekoSignal
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
             {
-                ((SignalChannel<T>)channel).AddCallback(callback, owner);
+                ((SignalChannel<T>)channel).AddCallback(callback, owner, priority);
             }
             else
             {
                 _signalChannels[type] = new SignalChannel<T>();
-                ((SignalChannel<T>)_signalChannels[type]).AddCallback(callback, owner);
+                ((SignalChannel<T>)_signalChannels[type]).AddCallback(callback, owner, priority);
             }
 
             // Handle monitor auto-unsubscription.
@@ -292,20 +299,35 @@ namespace NekoSignal
         {
             public Action<T> Callback;
             public MonoBehaviour Owner;
+            public int Priority;
         }
 
         private readonly List<Sub> _subs = new();
 
-        // When invoking, we defer removals to avoid invalidating indices.
         private bool _isInvoking;
         private readonly List<int> _pendingRemovals = new();
 
         public int SubscriberCount => _subs.Count;
 
-        public void AddCallback(Action<T> callback, MonoBehaviour owner)
+        public void AddCallback(Action<T> callback, MonoBehaviour owner, int priority)
         {
             if (callback == null || owner == null) return;
-            _subs.Add(new Sub { Callback = callback, Owner = owner });
+            var item = new Sub { Callback = callback, Owner = owner, Priority = priority };
+
+            // Insert into list keeping descending priority order, preserving FIFO for same priority
+            int insertIndex = _subs.Count;
+            for (int i = 0; i < _subs.Count; i++)
+            {
+                if (item.Priority > _subs[i].Priority)
+                {
+                    insertIndex = i;
+                    break;
+                }
+            }
+            if (insertIndex == _subs.Count)
+                _subs.Add(item);
+            else
+                _subs.Insert(insertIndex, item);
         }
 
         public void RemoveCallback(Action<T> callback)
@@ -322,9 +344,8 @@ namespace NekoSignal
                     }
                     else
                     {
-                        int last = _subs.Count - 1;
-                        _subs[i] = _subs[last];
-                        _subs.RemoveAt(last);
+                        // Maintain order: remove at index
+                        _subs.RemoveAt(i);
                     }
                     return;
                 }
@@ -337,7 +358,6 @@ namespace NekoSignal
             _pendingRemovals.Clear();
         }
 
-        /// <summary>Unfiltered publish: invoke every active subscriber (GC-free).</summary>
         public void Publish(T signal)
         {
             if (_subs.Count == 0) return;
@@ -373,7 +393,6 @@ namespace NekoSignal
             }
         }
 
-        /// <summary>Filtered publish: invoke only subscribers whose owner passes all filters (GC-free).</summary>
         public void PublishFiltered(T signal, ISignalFilter[] filters)
         {
             if (_subs.Count == 0) return;
@@ -435,15 +454,13 @@ namespace NekoSignal
                     _pendingRemovals[++write] = _pendingRemovals[r];
             int count = write + 1;
 
-            // remove from highest to lowest indices
+            // remove from highest to lowest indices while preserving order
             for (int idx = count - 1; idx >= 0; idx--)
             {
                 int i = _pendingRemovals[idx];
                 if (i >= 0 && i < _subs.Count)
                 {
-                    int last = _subs.Count - 1;
-                    _subs[i] = _subs[last];
-                    _subs.RemoveAt(last);
+                    _subs.RemoveAt(i);
                 }
             }
             _pendingRemovals.Clear();

@@ -1,5 +1,3 @@
-// NekoSignal — OnSignal Attribute
-// Supports implicit and explicit usage
 using System;
 using NekoLib.Core;
 using NekoLib.Extensions;
@@ -15,10 +13,19 @@ namespace NekoSignal
     public sealed class OnSignalAttribute : Attribute
     {
         public Type ExplicitSignalType { get; }
+        public int Priority { get; }
 
-        public OnSignalAttribute() { }
+        public OnSignalAttribute()
+        {
+            Priority = 0;
+        }
 
-        public OnSignalAttribute(Type signalType)
+        public OnSignalAttribute(int priority)
+        {
+            Priority = priority;
+        }
+
+        public OnSignalAttribute(Type signalType, int priority = 0)
         {
             if (signalType == null)
                 throw new ArgumentNullException(nameof(signalType));
@@ -27,6 +34,7 @@ namespace NekoSignal
                 throw new ArgumentException($"{signalType.Name.Colorize(Swatch.VR)} does not implement ISignal");
 
             ExplicitSignalType = signalType;
+            Priority = priority;
         }
     }
 }

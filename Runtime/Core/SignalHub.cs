@@ -20,9 +20,11 @@ namespace NekoSignal
         private static readonly Dictionary<Type, List<HandlerInfo>> _cache = new();
         private static readonly HashSet<(int instanceId, Type type)> _activeBindings = new();
 
-        private static readonly MethodInfo _subscribeGeneric =
+        private static readonly MethodInfo _subscribeGenericWithPriority =
             typeof(SignalBroadcaster).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(m => m.Name == nameof(SignalBroadcaster.Subscribe) && m.IsGenericMethodDefinition);
+                .FirstOrDefault(m => m.Name == nameof(SignalBroadcaster.Subscribe)
+                                     && m.IsGenericMethodDefinition
+                                     && m.GetParameters().Length == 3);
 
         private static readonly MethodInfo _unsubscribeGeneric =
             typeof(SignalBroadcaster).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -32,6 +34,7 @@ namespace NekoSignal
         {
             public Type SignalType;
             public MethodInfo Method;
+            public int Priority;
         }
 
 #if UNITY_EDITOR
@@ -52,7 +55,7 @@ namespace NekoSignal
         public static void Bind(MonoBehaviour target)
         {
             if (target == null) return;
-            if (_subscribeGeneric == null) return;
+            if (_subscribeGenericWithPriority == null) return;
 
             var type = target.GetType();
             var key = (target.GetInstanceID(), type);
@@ -78,8 +81,8 @@ namespace NekoSignal
                         continue;
                     }
 
-                    var subscribeClosed = _subscribeGeneric.MakeGenericMethod(handler.SignalType);
-                    subscribeClosed.Invoke(null, new object[] { target, del });
+                    var subscribeClosed = _subscribeGenericWithPriority.MakeGenericMethod(handler.SignalType);
+                    subscribeClosed.Invoke(null, new object[] { target, del, handler.Priority });
                 }
                 catch (Exception ex)
                 {
@@ -167,7 +170,7 @@ namespace NekoSignal
                         continue;
                     }
 
-                    list.Add(new HandlerInfo { SignalType = sigType, Method = method });
+                    list.Add(new HandlerInfo { SignalType = sigType, Method = method, Priority = attr.Priority });
                 }
             }
 
