@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using NekoLib.Logger;
+
 
 #if UNITY_EDITOR
 using System.Linq;
@@ -17,7 +19,7 @@ namespace NekoSignal
         {
             if (receiver == null)
             {
-                Debug.LogWarning("[SignalReceiverMonitor] Cannot add null receiver.");
+                Log.Warn("[SignalReceiverMonitor] Cannot add null receiver.");
                 return;
             }
 
@@ -34,7 +36,7 @@ namespace NekoSignal
         {
             if (callback == null)
             {
-                Debug.LogWarning("[SignalReceiverMonitor] Cannot remove null receiver.");
+                Log.Warn("[SignalReceiverMonitor] Cannot remove null receiver.");
                 return;
             }
 
@@ -93,6 +95,59 @@ namespace NekoSignal
 
                 return (callbackInfo, isActive);
             });
+        }
+
+        /// <summary>
+        /// Detailed subscriber info for this monitor's GameObject, matching SignalBroadcaster data.
+        /// </summary>
+        public IEnumerable<SignalSubscriberInfo> GetDetailedSubscriberInfo()
+        {
+            var result = new List<SignalSubscriberInfo>();
+            if (_receivers.Count == 0) return result;
+
+            // Group receivers by signal type for efficient lookup
+            var byType = _receivers
+                .Where(kvp => kvp.Value != null)
+                .GroupBy(kvp => kvp.Value.SignalType);
+
+            foreach (var g in byType)
+            {
+                var type = g.Key;
+                if (type == null) continue;
+                var subs = SignalBroadcaster.GetSubscriberInfoByType(type);
+                if (subs == null) continue;
+
+                foreach (var kvp in g)
+                {
+                    var del = kvp.Key;
+                    if (del == null) continue;
+                    var methodName = del.Method.Name;
+                    var target = del.Target;
+
+                    // Try to match subscriber info by method name + target object if possible
+                    SignalSubscriberInfo matched = null;
+                    foreach (var si in subs)
+                    {
+                        if (si == null) continue;
+                        if (si.MethodName != methodName) continue;
+                        if (target == null)
+                        {
+                            // Static method case: accept first matching method name
+                            matched = si; break;
+                        }
+                        if (target is UnityEngine.Object uo && si.TargetObject == uo)
+                        {
+                            matched = si; break;
+                        }
+                        if (target is MonoBehaviour mb && si.OwnerGameObject == mb.gameObject)
+                        {
+                            matched = si; break;
+                        }
+                    }
+                    if (matched != null) result.Add(matched);
+                }
+            }
+            return result;
         }
 
         private string GetCallbackDisplayName(Delegate callback)

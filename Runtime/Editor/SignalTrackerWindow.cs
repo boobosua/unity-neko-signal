@@ -659,7 +659,36 @@ namespace NekoSignal
             filterStyle.normal.textColor = new Color(1f, 0.9f, 0.4f, 1f);
 
             string comp = string.IsNullOrEmpty(e.PublisherComponentName) ? "<Component>" : e.PublisherComponentName;
-            string go = string.IsNullOrEmpty(e.PublisherGameObjectName) ? "<GameObject>" : e.PublisherGameObjectName;
+
+            // Provide richer fallback when there is no GameObject (non-MonoBehaviour publishers like plain class/struct)
+            string go;
+            if (!string.IsNullOrEmpty(e.PublisherGameObjectName))
+            {
+                go = e.PublisherGameObjectName; // normal MonoBehaviour case
+            }
+            else if (e.PublisherObject is GameObject goObj && goObj)
+            {
+                go = goObj.name; // explicit gameobject reference
+            }
+            else if (e.PublisherObject != null)
+            {
+                // Non-GameObject UnityEngine.Object (e.g., ScriptableObject) or other object instance
+                go = e.PublisherObject.GetType().Name;
+            }
+            else if (!string.IsNullOrEmpty(e.PublisherComponentName))
+            {
+                // Fall back to component/type name if we captured it from stack trace
+                go = e.PublisherComponentName;
+            }
+            else if (!string.IsNullOrEmpty(e.ScriptFilePath))
+            {
+                try { go = Path.GetFileNameWithoutExtension(e.ScriptFilePath) ?? "<Source>"; }
+                catch { go = "<Source>"; }
+            }
+            else
+            {
+                go = e.SignalTypeName ?? "<Source>"; // last resort
+            }
             string atTxt = " at ";
             // Shorter time (rounded to seconds)
             string timeTxt = e.Time.ToString("HH:mm:ss");
