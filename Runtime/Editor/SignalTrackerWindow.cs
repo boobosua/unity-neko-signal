@@ -139,15 +139,31 @@ namespace NekoSignal
             // Left sidebar: signals
             EditorGUILayout.BeginVertical(GUILayout.Width(220));
             EditorGUILayout.LabelField("Signals", EditorStyles.boldLabel);
+            var sep2 = EditorGUILayout.GetControlRect(false, 1f);
+            EditorGUI.DrawRect(new Rect(sep2.x, sep2.y, sep2.width, 1f), BORDER_COLOR);
+            EditorGUILayout.Space(2);
             _monitorLeftScroll = EditorGUILayout.BeginScrollView(_monitorLeftScroll, GUILayout.ExpandHeight(true));
             for (int i = 0; i < channels.Count; i++)
             {
                 var ch = channels[i];
                 var t = ch.SignalType;
                 var count = ch.SubscriberCount;
-                if (GUILayout.Toggle(i == _monitorSelectedIndex, $"{t.Name} ({count})", "Button"))
+                var rowRect = EditorGUILayout.GetControlRect(false, 22f);
+                bool isSelectedRow = (i == _monitorSelectedIndex);
+                if (isSelectedRow)
+                {
+                    EditorGUI.DrawRect(rowRect, EditorGUIUtility.isProSkin ? new Color(0.25f, 0.45f, 0.65f, 0.35f) : new Color(0.6f, 0.75f, 0.95f, 0.6f));
+                }
+                var nameRect = new Rect(rowRect.x + 6, rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
+                var countRect = new Rect(rowRect.xMax - 50, rowRect.y + 3, 44, rowRect.height - 6);
+                var labelStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
+                var countStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
+                GUI.Label(nameRect, t.Name, labelStyle);
+                GUI.Label(countRect, count.ToString(), countStyle);
+                if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
                 {
                     _monitorSelectedIndex = i;
+                    Event.current.Use();
                 }
             }
             EditorGUILayout.EndScrollView();
@@ -518,6 +534,7 @@ namespace NekoSignal
         // Signal Log View
         // -----------------------------
         private int _selectedLogSignalIndex = 0;
+        private Type _selectedLogSignalType = null; // keep selection stable across dynamic type reordering
         private Vector2 _logLeftScroll, _logRightScroll;
 
         private void DrawSignalLogView()
@@ -526,18 +543,53 @@ namespace NekoSignal
             var logs = SignalLogStore.GetLogs();
             var types = SignalLogStore.GetSignalTypes().ToList();
 
+            // Keep previous selection by Type instead of by index (list reorders as new types arrive)
+            if (types.Count > 0)
+            {
+                if (_selectedLogSignalType == null || !types.Contains(_selectedLogSignalType))
+                {
+                    // Fallback to first available type
+                    _selectedLogSignalType = types[0];
+                    _selectedLogSignalIndex = 0;
+                }
+                else
+                {
+                    // Update index to match current position of selected type for UI highlight only
+                    _selectedLogSignalIndex = types.IndexOf(_selectedLogSignalType);
+                }
+            }
+
             EditorGUILayout.BeginHorizontal();
             // Left sidebar: signals
             EditorGUILayout.BeginVertical(GUILayout.Width(220));
             EditorGUILayout.LabelField("Signals", EditorStyles.boldLabel);
+            // Separator under header
+            var sep2 = EditorGUILayout.GetControlRect(false, 1f);
+            EditorGUI.DrawRect(new Rect(sep2.x, sep2.y, sep2.width, 1f), BORDER_COLOR);
+            EditorGUILayout.Space(2);
             _logLeftScroll = EditorGUILayout.BeginScrollView(_logLeftScroll, GUILayout.ExpandHeight(true));
             for (int i = 0; i < types.Count; i++)
             {
                 var t = types[i];
                 var count = logs.Count(l => l.SignalType == t);
-                var style = (i == _selectedLogSignalIndex) ? EditorStyles.whiteLabel : EditorStyles.label;
-                if (GUILayout.Toggle(i == _selectedLogSignalIndex, $"{t.Name} ({count})", "Button"))
+                var rowRect = EditorGUILayout.GetControlRect(false, 22f);
+                bool selected = (t == _selectedLogSignalType);
+                if (selected)
+                {
+                    EditorGUI.DrawRect(rowRect, EditorGUIUtility.isProSkin ? new Color(0.25f, 0.45f, 0.65f, 0.35f) : new Color(0.6f, 0.75f, 0.95f, 0.6f));
+                }
+                var nameRect = new Rect(rowRect.x + 6, rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
+                var countRect = new Rect(rowRect.xMax - 50, rowRect.y + 3, 44, rowRect.height - 6);
+                var labelStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
+                var countStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
+                GUI.Label(nameRect, t.Name, labelStyle);
+                GUI.Label(countRect, count.ToString(), countStyle);
+                if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
+                {
+                    _selectedLogSignalType = t;
                     _selectedLogSignalIndex = i;
+                    Event.current.Use();
+                }
             }
             EditorGUILayout.EndScrollView();
 
@@ -546,6 +598,14 @@ namespace NekoSignal
             if (GUILayout.Button("Clear", GUILayout.Width(100)))
                 SignalLogStore.Clear();
             SignalLogStore.Enabled = GUILayout.Toggle(SignalLogStore.Enabled, "Capture", GUILayout.Width(100));
+            GUILayout.FlexibleSpace();
+            // Capacity control
+            EditorGUIUtility.labelWidth = 40f;
+            int newCap = EditorGUILayout.IntField("Max", SignalLogStore.Capacity, GUILayout.Width(120));
+            if (newCap != SignalLogStore.Capacity)
+            {
+                SignalLogStore.Capacity = Mathf.Clamp(newCap, 16, 10000);
+            }
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.EndVertical();
@@ -565,8 +625,9 @@ namespace NekoSignal
             }
             else
             {
-                var selType = types[Mathf.Clamp(_selectedLogSignalIndex, 0, types.Count - 1)];
+                var selType = _selectedLogSignalType ?? types[Mathf.Clamp(_selectedLogSignalIndex, 0, types.Count - 1)];
                 var entries = logs.Where(l => l.SignalType == selType).OrderByDescending(l => l.Time).ToList();
+
                 foreach (var e in entries)
                 {
                     DrawLogEntry(e);
@@ -598,25 +659,50 @@ namespace NekoSignal
             var bg = EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.06f);
             EditorGUI.DrawRect(innerRect, bg);
 
-            // Compose message with clickable parts
-            var msgRect = new Rect(rowRect.x + 10, rowRect.y, rowRect.width - 20, rowRect.height);
+            // Left foldout triangle for explicit payload toggle
+            float foldW = 14f;
+            var foldRect = new Rect(rowRect.x + 6, rowRect.y + (rowRect.height - EditorGUIUtility.singleLineHeight) * 0.5f, foldW, EditorGUIUtility.singleLineHeight);
+            bool newExpanded = EditorGUI.Foldout(foldRect, e.PayloadExpanded, GUIContent.none, true);
+            if (newExpanded != e.PayloadExpanded)
+            {
+                e.PayloadExpanded = newExpanded;
+            }
+
+            // Compose message with clickable parts (leave space for triangle)
+            var msgRect = new Rect(rowRect.x + 10 + foldW, rowRect.y, rowRect.width - (20 + foldW), rowRect.height);
             DrawPublishMessage(msgRect, e);
 
             // Clicking empty area of the message toggles payload foldout (handled within DrawPublishMessage as well).
 
             // Payload preview under the message
-            if (e.PayloadExpanded && e.PayloadFields != null && e.PayloadFields.Count > 0)
+            if (e.PayloadExpanded)
             {
-                var inner = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
-                EditorGUILayout.BeginVertical(inner);
-                foreach (var f in e.PayloadFields)
+                if (e.PayloadFields != null && e.PayloadFields.Count > 0)
                 {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(f.Name, GUILayout.Width(160));
-                    EditorGUILayout.LabelField(f.Value, EditorStyles.miniLabel);
-                    EditorGUILayout.EndHorizontal();
+                    var inner = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
+                    EditorGUILayout.BeginVertical(inner);
+                    foreach (var f in e.PayloadFields)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField(f.Name, GUILayout.Width(160));
+                        EditorGUILayout.LabelField(f.Value, EditorStyles.miniLabel);
+                        EditorGUILayout.EndHorizontal();
+                    }
+                    EditorGUILayout.EndVertical();
                 }
-                EditorGUILayout.EndVertical();
+                else
+                {
+                    // Explicit message so users know foldout worked even if no fields available
+                    var inner = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
+                    EditorGUILayout.BeginVertical(inner);
+                    if (e.PayloadIsNull)
+                        EditorGUILayout.LabelField("Payload is null.", EditorStyles.miniLabel);
+                    else if (e.PayloadReflectionError)
+                        EditorGUILayout.LabelField("Payload could not be inspected (reflection error).", EditorStyles.miniLabel);
+                    else
+                        EditorGUILayout.LabelField("Payload has no public/serialized fields or readable properties.", EditorStyles.miniLabel);
+                    EditorGUILayout.EndVertical();
+                }
             }
 
             // Footer profiler summary

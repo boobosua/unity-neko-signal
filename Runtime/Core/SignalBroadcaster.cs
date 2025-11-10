@@ -384,20 +384,14 @@ namespace NekoSignal
 
                     try
                     {
-                        double durMs = 0;
-#if UNITY_EDITOR
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-#endif
+
                         cb?.Invoke(signal);
 #if UNITY_EDITOR
-                        sw.Stop();
-                        durMs = sw.Elapsed.TotalMilliseconds;
                         SignalLogStore.AddInvocation(logEntry,
                             cb?.Method?.Name ?? "<fn>",
                             owner ? owner.GetType().Name : "<owner>",
                             owner ? owner.gameObject.name : "<null>",
                             prio,
-                            durMs,
                             false,
                             null);
 #endif
@@ -411,7 +405,6 @@ namespace NekoSignal
                             owner ? owner.GetType().Name : "<owner>",
                             owner ? owner.gameObject.name : "<null>",
                             prio,
-                            0,
                             true,
                             ex.Message);
 #endif
@@ -480,7 +473,6 @@ namespace NekoSignal
                             owner ? owner.GetType().Name : "<owner>",
                             owner ? owner.gameObject.name : "<null>",
                             prio,
-                            durMs,
                             false,
                             null);
 #endif
@@ -494,7 +486,6 @@ namespace NekoSignal
                             owner ? owner.GetType().Name : "<owner>",
                             owner ? owner.gameObject.name : "<null>",
                             prio,
-                            0,
                             true,
                             ex.Message);
 #endif

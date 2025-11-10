@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,10 +15,8 @@ namespace NekoSignal
         public string ComponentName;
         public string GameObjectName;
         public int Priority;
-        public double DurationMs;
         public bool Threw;
         public string ExceptionMessage;
-        public bool PayloadExpanded; // UI state: expand payload under this row
     }
 
     [Serializable]
@@ -30,6 +29,12 @@ namespace NekoSignal
         public List<PayloadField> PayloadFields = new();
         public bool PayloadExpanded = false;
         public List<SignalInvocationLog> Invocations = new();
+        public int Id; // unique incremental id for stable tracking
+
+        // Payload state diagnostics
+        public bool PayloadIsNull;
+        public bool PayloadReflectionError; // true if reflection threw and we aborted
+        public bool PayloadInspectableMembersFound; // true if any members captured
 
         // Publisher context (editor-only logging)
         public string PublisherComponentName;
@@ -103,8 +108,12 @@ namespace NekoSignal
                 SignalTypeName = signalType.Name,
                 Time = DateTime.Now,
                 Frame = Time.frameCount,
-                PayloadFields = BuildPayloadFields(payload)
+                Id = ++_nextId,
             };
+            entry.PayloadIsNull = payload == null;
+            entry.PayloadFields = BuildPayloadFields(payload, out var reflectionError);
+            entry.PayloadReflectionError = reflectionError;
+            entry.PayloadInspectableMembersFound = entry.PayloadFields != null && entry.PayloadFields.Count > 0;
 
             // Populate publisher context from scope or stack trace
             try
@@ -178,7 +187,7 @@ namespace NekoSignal
             catch { }
         }
 
-        public static void AddInvocation(SignalPublishLog entry, string method, string component, string gameObject, int priority, double durationMs, bool threw, string exceptionMsg)
+        public static void AddInvocation(SignalPublishLog entry, string method, string component, string gameObject, int priority, bool threw, string exceptionMsg)
         {
             if (!Enabled || entry == null) return;
             entry.Invocations.Add(new SignalInvocationLog
@@ -187,7 +196,6 @@ namespace NekoSignal
                 ComponentName = component,
                 GameObjectName = gameObject,
                 Priority = priority,
-                DurationMs = durationMs,
                 Threw = threw,
                 ExceptionMessage = exceptionMsg
             });
@@ -205,7 +213,19 @@ namespace NekoSignal
         {
             lock (_lock)
             {
-                return _buffer.Select(b => b.SignalType).Distinct().ToList();
+                // Only show types currently present in the buffer (active recently)
+                // Order by activity (count) desc, then name
+                var counts = new Dictionary<Type, int>();
+                foreach (var b in _buffer)
+                {
+                    if (!counts.ContainsKey(b.SignalType)) counts[b.SignalType] = 0;
+                    counts[b.SignalType]++;
+                }
+                return counts
+                    .OrderByDescending(kv => kv.Value)
+                    .ThenBy(kv => kv.Key.Name)
+                    .Select(kv => kv.Key)
+                    .ToList();
             }
         }
 
@@ -234,26 +254,61 @@ namespace NekoSignal
         }
 #endif
 
-        private static List<PayloadField> BuildPayloadFields(object payload)
+        private static int _nextId = 0;
+
+        private static List<PayloadField> BuildPayloadFields(object payload, out bool reflectionFailed)
         {
             var list = new List<PayloadField>();
+            reflectionFailed = false;
             if (payload == null) return list;
             try
             {
                 var t = payload.GetType();
-                // Reflect public fields and [SerializeField] (one level)
-                var fields = t.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (fields.Length == 0) return list;
-                foreach (var f in fields)
+                var seen = new HashSet<string>();
+
+                // 1) Public instance fields
+                var pubFields = t.GetFields(BindingFlags.Public | BindingFlags.Instance);
+                foreach (var f in pubFields)
                 {
-                    object v = null;
-                    try { v = f.GetValue(payload); } catch { }
+                    object v = null; try { v = f.GetValue(payload); } catch { }
                     list.Add(new PayloadField { Name = f.Name, Value = FormatValue(v) });
+                    seen.Add(f.Name);
                 }
+
+                // 2) Private serialized fields ([SerializeField])
+                var nonPubFields = t.GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                foreach (var f in nonPubFields)
+                {
+                    if (seen.Contains(f.Name)) continue;
+                    try
+                    {
+                        if (f.GetCustomAttribute<SerializeField>() != null)
+                        {
+                            object v = null; try { v = f.GetValue(payload); } catch { }
+                            list.Add(new PayloadField { Name = f.Name.TrimStart('<').TrimEnd('>'), Value = FormatValue(v) });
+                            seen.Add(f.Name);
+                        }
+                    }
+                    catch { /* ignore reflection edge cases */ }
+                }
+
+                // 3) Public readable properties (no indexers)
+                var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                foreach (var p in props)
+                {
+                    if (!p.CanRead) continue;
+                    if (p.GetIndexParameters()?.Length > 0) continue; // skip indexers
+                    if (seen.Contains(p.Name)) continue;
+                    object v = null; try { v = p.GetValue(payload, null); } catch { }
+                    list.Add(new PayloadField { Name = p.Name, Value = FormatValue(v) });
+                    seen.Add(p.Name);
+                }
+
                 return list;
             }
             catch
             {
+                reflectionFailed = true;
                 return list;
             }
         }
