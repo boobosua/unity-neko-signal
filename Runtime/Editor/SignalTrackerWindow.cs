@@ -47,12 +47,9 @@ namespace NekoSignal
         {
             try
             {
-                // Standalone top tab bar
-                EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-                var newTabTop = (Tab)GUILayout.Toolbar((int)_activeTab, new[] { "Subscription Monitor", "Signal Log" }, EditorStyles.toolbarButton, GUILayout.Height(22));
-                if (newTabTop != _activeTab)
-                    _activeTab = newTabTop;
-                EditorGUILayout.EndHorizontal();
+                // Unified tab bar
+                int newIndex = NekoLib.Core.NekoEditorTabBar.Draw((int)_activeTab, new[] { "Subscription Monitor", "Signal Log" }, 24f);
+                _activeTab = (Tab)newIndex;
 
                 // Secondary toolbar for actions/search
                 EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
