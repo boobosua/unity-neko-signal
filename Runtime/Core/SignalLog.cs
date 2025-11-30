@@ -9,7 +9,7 @@ using UnityEngine;
 namespace NekoSignal
 {
     [Serializable]
-    public class SignalInvocationLog
+    internal class SignalInvocationLog
     {
         public string MethodName;
         public string ComponentName;
@@ -20,7 +20,7 @@ namespace NekoSignal
     }
 
     [Serializable]
-    public class SignalPublishLog
+    internal class SignalPublishLog
     {
         public Type SignalType;
         public string SignalTypeName;
@@ -48,7 +48,7 @@ namespace NekoSignal
     }
 
     [Serializable]
-    public class PayloadField
+    internal class PayloadField
     {
         public string Name;
         public string Value;
@@ -58,7 +58,7 @@ namespace NekoSignal
     /// Lightweight in-memory log store for editor visualization.
     /// Editor-only (compiled out in player builds).
     /// </summary>
-    public static class SignalLogStore
+    internal static class SignalLogStore
     {
         public static bool Enabled = true;
         public static int Capacity = 256;

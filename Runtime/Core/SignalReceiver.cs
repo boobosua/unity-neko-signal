@@ -25,9 +25,7 @@ namespace NekoSignal
 
         public void Dispose()
         {
-            if (_isDisposed)
-                return;
-
+            if (_isDisposed) return;
             _unsubscribeAction?.Invoke();
             _isDisposed = true;
         }

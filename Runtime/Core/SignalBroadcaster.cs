@@ -13,7 +13,7 @@ using UnityEditor;
 namespace NekoSignal
 {
     [UnityEngine.Scripting.Preserve]
-    public static class SignalBroadcaster
+    internal static class SignalBroadcaster
     {
         private static readonly Dictionary<Type, ISignalChannel> _signalChannels = new();
 

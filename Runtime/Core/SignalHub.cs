@@ -39,7 +39,7 @@ namespace NekoSignal
 
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]
-        private static void __EditorInit()
+        private static void EditorInit()
         {
             EditorApplication.playModeStateChanged += state =>
             {

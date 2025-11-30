@@ -32,33 +32,13 @@ namespace NekoSignal
         }
 
         /// <summary>
-        /// Publishes a signal of the specified type.
-        /// </summary>
-        public static void Publish<T>(this MonoBehaviour owner, T signal, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0) where T : ISignal
-        {
-            if (owner == null)
-            {
-                SignalBroadcaster.Publish(signal);
-                return;
-            }
-#if UNITY_EDITOR
-            using (SignalLogStore.Publisher(owner, file, line))
-            {
-                SignalBroadcaster.Publish(signal);
-            }
-#else
-            SignalBroadcaster.Publish(signal);
-#endif
-        }
-
-        /// <summary>
         /// Publishes a signal of the specified type with filters.
         /// </summary>
         public static void Publish<T>(this MonoBehaviour owner, T signal, params ISignalFilter[] filters) where T : ISignal
         {
             if (owner == null)
             {
-                SignalBroadcaster.Publish(signal, filters);
+                Log.Warn("Cannot publish signal from null MonoBehaviour.");
                 return;
             }
 #if UNITY_EDITOR

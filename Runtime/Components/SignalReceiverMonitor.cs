@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using NekoLib.Logger;
 
-
 #if UNITY_EDITOR
 using System.Linq;
 #endif
