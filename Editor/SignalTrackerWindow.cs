@@ -48,7 +48,7 @@ namespace NekoSignal
             try
             {
                 // Unified tab bar
-                int newIndex = NekoLib.Core.NekoEditorTabBar.Draw((int)_activeTab, new[] { "Subscription Monitor", "Signal Log" }, 24f);
+                int newIndex = NekoLib.NekoEditorTabBar.Draw((int)_activeTab, new[] { "Subscription Monitor", "Signal Log" }, 24f);
                 _activeTab = (Tab)newIndex;
 
                 // Secondary toolbar for actions/search
