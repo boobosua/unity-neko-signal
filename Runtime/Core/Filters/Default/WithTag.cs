@@ -2,9 +2,7 @@ using UnityEngine;
 
 namespace NekoSignal
 {
-    /// <summary>
-    /// Allow only subscribers whose owner GameObject has the given Unity tag.
-    /// </summary>
+    /// <summary>Allow only subscribers whose owner GameObject has the given Unity tag.</summary>
     public sealed class WithTag : ISignalFilter
     {
         private readonly string _tag;

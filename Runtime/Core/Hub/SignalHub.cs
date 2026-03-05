@@ -2,20 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
 using NekoLib.Logger;
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
+using UnityEngine;
 
 namespace NekoSignal
 {
-    /// <summary>
-    /// Binds/unbinds MonoBehaviour methods marked with [OnSignal].
-    /// </summary>
+    /// <summary>Binds/unbinds MonoBehaviour methods marked with [OnSignal].</summary>
     [UnityEngine.Scripting.Preserve]
-    public static class SignalHub
+    public static partial class SignalHub
     {
         private static readonly Dictionary<Type, List<HandlerInfo>> _cache = new();
         private static readonly HashSet<(int instanceId, Type type)> _activeBindings = new();
@@ -37,21 +31,7 @@ namespace NekoSignal
             public int Priority;
         }
 
-#if UNITY_EDITOR
-        [InitializeOnLoadMethod]
-        private static void EditorInit()
-        {
-            EditorApplication.playModeStateChanged += state =>
-            {
-                if (state == PlayModeStateChange.ExitingPlayMode)
-                {
-                    _cache.Clear();
-                    _activeBindings.Clear();
-                }
-            };
-        }
-#endif
-
+        /// <summary>Discovers and subscribes all [OnSignal] methods on the target to their respective signal types.</summary>
         public static void Bind(MonoBehaviour target)
         {
             if (target == null) return;
@@ -93,6 +73,7 @@ namespace NekoSignal
             _activeBindings.Add(key);
         }
 
+        /// <summary>Unsubscribes all [OnSignal] methods previously bound on the target.</summary>
         public static void Unbind(MonoBehaviour target)
         {
             if (target == null) return;
@@ -127,6 +108,7 @@ namespace NekoSignal
             _activeBindings.Remove(key);
         }
 
+        /// <summary>Returns true if the target currently has active [OnSignal] bindings.</summary>
         public static bool IsBound(MonoBehaviour target)
         {
             if (target == null) return false;

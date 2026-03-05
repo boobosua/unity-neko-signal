@@ -1,5 +1,5 @@
 using System;
-using NekoLib.Core;
+using NekoLib.ColorPalette;
 using NekoLib.Extensions;
 
 namespace NekoSignal

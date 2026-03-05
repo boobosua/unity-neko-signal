@@ -8,56 +8,7 @@ using UnityEngine;
 
 namespace NekoSignal
 {
-    [Serializable]
-    internal class SignalInvocationLog
-    {
-        public string MethodName;
-        public string ComponentName;
-        public string GameObjectName;
-        public int Priority;
-        public bool Threw;
-        public string ExceptionMessage;
-    }
-
-    [Serializable]
-    internal class SignalPublishLog
-    {
-        public Type SignalType;
-        public string SignalTypeName;
-        public DateTime Time;
-        public int Frame;
-        public List<PayloadField> PayloadFields = new();
-        public bool PayloadExpanded = false;
-        public List<SignalInvocationLog> Invocations = new();
-        public int Id; // unique incremental id for stable tracking
-
-        // Payload state diagnostics
-        public bool PayloadIsNull;
-        public bool PayloadReflectionError; // true if reflection threw and we aborted
-        public bool PayloadInspectableMembersFound; // true if any members captured
-
-        // Publisher context (editor-only logging)
-        public string PublisherComponentName;
-        public string PublisherGameObjectName;
-        public UnityEngine.Object PublisherObject; // MonoBehaviour or GameObject for ping/select
-        public string ScriptFilePath;
-        public int ScriptLine;
-
-        // Filters used during publish (for filtered publishes)
-        public List<string> Filters = new();
-    }
-
-    [Serializable]
-    internal class PayloadField
-    {
-        public string Name;
-        public string Value;
-    }
-
-    /// <summary>
-    /// Lightweight in-memory log store for editor visualization.
-    /// Editor-only (compiled out in player builds).
-    /// </summary>
+    /// <summary>Lightweight in-memory log store for editor visualization. Compiled out in player builds.</summary>
     internal static class SignalLogStore
     {
         public static bool Enabled = true;
@@ -66,7 +17,6 @@ namespace NekoSignal
         private static readonly LinkedList<SignalPublishLog> _buffer = new();
         private static readonly object _lock = new();
 
-        // Thread-static publisher context to be set by extensions when available
         [ThreadStatic] private static MonoBehaviour _currentPublisher;
         [ThreadStatic] private static string _currentFile;
         [ThreadStatic] private static int _currentLine;
@@ -99,9 +49,21 @@ namespace NekoSignal
         public static PublisherContextScope Publisher(MonoBehaviour owner, string file, int line)
             => new PublisherContextScope(owner, file, line);
 
+        [InitializeOnLoadMethod]
+        private static void InitializeEditorHooks()
+        {
+            Clear();
+            EditorApplication.playModeStateChanged += state =>
+            {
+                if (state == PlayModeStateChange.EnteredPlayMode)
+                    Clear();
+            };
+        }
+
         public static SignalPublishLog BeginPublish(Type signalType, object payload)
         {
             if (!Enabled || signalType == null) return null;
+
             var entry = new SignalPublishLog
             {
                 SignalType = signalType,
@@ -110,15 +72,14 @@ namespace NekoSignal
                 Frame = Time.frameCount,
                 Id = ++_nextId,
             };
+
             entry.PayloadIsNull = payload == null;
             entry.PayloadFields = BuildPayloadFields(payload, out var reflectionError);
             entry.PayloadReflectionError = reflectionError;
             entry.PayloadInspectableMembersFound = entry.PayloadFields != null && entry.PayloadFields.Count > 0;
 
-            // Populate publisher context from scope or stack trace
             try
             {
-                // Prefer explicit scope context
                 if (_currentPublisher)
                 {
                     entry.PublisherObject = _currentPublisher;
@@ -126,14 +87,12 @@ namespace NekoSignal
                     entry.PublisherGameObjectName = _currentPublisher.gameObject ? _currentPublisher.gameObject.name : "<GO>";
                 }
 
-                // File/line from scope if provided
                 if (!string.IsNullOrEmpty(_currentFile))
                 {
                     entry.ScriptFilePath = _currentFile;
                     entry.ScriptLine = _currentLine;
                 }
 
-                // If missing, try to infer from stack trace
                 if (string.IsNullOrEmpty(entry.ScriptFilePath))
                 {
                     var st = new System.Diagnostics.StackTrace(true);
@@ -143,21 +102,15 @@ namespace NekoSignal
                         var m = f.GetMethod();
                         var dt = m?.DeclaringType;
                         if (dt == null) continue;
-                        var ns = dt.Namespace ?? string.Empty;
-                        if (ns.StartsWith("NekoSignal")) continue; // skip library frames
-#if UNITY_EDITOR
-                        // Prefer MonoBehaviour frames
-                        if (typeof(MonoBehaviour).IsAssignableFrom(dt) || true)
-                        {
-                            entry.ScriptFilePath = f.GetFileName();
-                            entry.ScriptLine = f.GetFileLineNumber();
-                            if (string.IsNullOrEmpty(entry.PublisherComponentName))
-                                entry.PublisherComponentName = dt.Name;
-                            if (string.IsNullOrEmpty(entry.PublisherGameObjectName) && _currentPublisher)
-                                entry.PublisherGameObjectName = _currentPublisher.gameObject ? _currentPublisher.gameObject.name : null;
-                            break;
-                        }
-#endif
+                        if ((dt.Namespace ?? string.Empty).StartsWith("NekoSignal")) continue;
+
+                        entry.ScriptFilePath = f.GetFileName();
+                        entry.ScriptLine = f.GetFileLineNumber();
+                        if (string.IsNullOrEmpty(entry.PublisherComponentName))
+                            entry.PublisherComponentName = dt.Name;
+                        if (string.IsNullOrEmpty(entry.PublisherGameObjectName) && _currentPublisher)
+                            entry.PublisherGameObjectName = _currentPublisher.gameObject ? _currentPublisher.gameObject.name : null;
+                        break;
                     }
                 }
             }
@@ -169,6 +122,7 @@ namespace NekoSignal
                 while (_buffer.Count > Capacity)
                     _buffer.RemoveLast();
             }
+
             return entry;
         }
 
@@ -179,9 +133,7 @@ namespace NekoSignal
             {
                 for (int i = 0; i < filters.Length; i++)
                 {
-                    var f = filters[i];
-                    if (f == null) continue;
-                    entry.Filters.Add(f.GetType().Name);
+                    if (filters[i] != null) entry.Filters.Add(filters[i].GetType().Name);
                 }
             }
             catch { }
@@ -203,18 +155,13 @@ namespace NekoSignal
 
         public static List<SignalPublishLog> GetLogs()
         {
-            lock (_lock)
-            {
-                return _buffer.ToList();
-            }
+            lock (_lock) { return _buffer.ToList(); }
         }
 
         public static IEnumerable<Type> GetSignalTypes()
         {
             lock (_lock)
             {
-                // Only show types currently present in the buffer (active recently)
-                // Order by activity (count) desc, then name
                 var counts = new Dictionary<Type, int>();
                 foreach (var b in _buffer)
                 {
@@ -231,30 +178,10 @@ namespace NekoSignal
 
         public static void Clear()
         {
-            lock (_lock)
-            {
-                _buffer.Clear();
-            }
+            lock (_lock) { _buffer.Clear(); }
         }
 
-#if UNITY_EDITOR
-        [InitializeOnLoadMethod]
-        private static void InitializeEditorHooks()
-        {
-            // Clear once when the project/editor domain loads
-            Clear();
-            EditorApplication.playModeStateChanged += state =>
-            {
-                // Only clear when entering play mode (fresh run)
-                if (state == PlayModeStateChange.EnteredPlayMode)
-                {
-                    Clear();
-                }
-            };
-        }
-#endif
-
-        private static int _nextId = 0;
+        private static int _nextId;
 
         private static List<PayloadField> BuildPayloadFields(object payload, out bool reflectionFailed)
         {
@@ -267,17 +194,15 @@ namespace NekoSignal
                 var seen = new HashSet<string>();
 
                 // 1) Public instance fields
-                var pubFields = t.GetFields(BindingFlags.Public | BindingFlags.Instance);
-                foreach (var f in pubFields)
+                foreach (var f in t.GetFields(BindingFlags.Public | BindingFlags.Instance))
                 {
                     object v = null; try { v = f.GetValue(payload); } catch { }
                     list.Add(new PayloadField { Name = f.Name, Value = FormatValue(v) });
                     seen.Add(f.Name);
                 }
 
-                // 2) Private serialized fields ([SerializeField])
-                var nonPubFields = t.GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
-                foreach (var f in nonPubFields)
+                // 2) Private serialized fields
+                foreach (var f in t.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
                 {
                     if (seen.Contains(f.Name)) continue;
                     try
@@ -289,16 +214,13 @@ namespace NekoSignal
                             seen.Add(f.Name);
                         }
                     }
-                    catch { /* ignore reflection edge cases */ }
+                    catch { }
                 }
 
                 // 3) Public readable properties (no indexers)
-                var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-                foreach (var p in props)
+                foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                 {
-                    if (!p.CanRead) continue;
-                    if (p.GetIndexParameters()?.Length > 0) continue; // skip indexers
-                    if (seen.Contains(p.Name)) continue;
+                    if (!p.CanRead || p.GetIndexParameters()?.Length > 0 || seen.Contains(p.Name)) continue;
                     object v = null; try { v = p.GetValue(payload, null); } catch { }
                     list.Add(new PayloadField { Name = p.Name, Value = FormatValue(v) });
                     seen.Add(p.Name);
@@ -317,7 +239,7 @@ namespace NekoSignal
         {
             if (v == null) return "null";
             if (v is string s) return "\"" + s + "\"";
-            if (v is bool) return (bool)v ? "true" : "false";
+            if (v is bool b) return b ? "true" : "false";
             if (v is Enum) return v.ToString();
             if (v is ValueType) return v.ToString();
             if (v is UnityEngine.Object uo) return uo ? uo.name : "(Destroyed)";
