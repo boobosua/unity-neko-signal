@@ -17,7 +17,7 @@ namespace NekoSignal
     }
 
     [Serializable]
-    internal class SignalPublishLog
+    internal class SignalEmitLog
     {
         public Type SignalType;
         public string SignalTypeName;
@@ -32,9 +32,9 @@ namespace NekoSignal
         public bool PayloadReflectionError;
         public bool PayloadInspectableMembersFound;
 
-        public string PublisherComponentName;
-        public string PublisherGameObjectName;
-        public UnityEngine.Object PublisherObject;
+        public string EmitterComponentName;
+        public string EmitterGameObjectName;
+        public UnityEngine.Object EmitterObject;
         public string ScriptFilePath;
         public int ScriptLine;
 

@@ -42,7 +42,7 @@ namespace NekoSignal
             }
         }
 
-        public void DisposeAllReceiversOfType<T>() where T : ISignal
+        public void DisposeAllReceiversOfType<T>() where T : struct, ISignal
         {
             var keysToRemove = new List<Delegate>();
 

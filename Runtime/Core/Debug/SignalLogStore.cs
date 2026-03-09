@@ -14,40 +14,40 @@ namespace NekoSignal
         public static bool Enabled = true;
         public static int Capacity = 256;
 
-        private static readonly LinkedList<SignalPublishLog> _buffer = new();
+        private static readonly LinkedList<SignalEmitLog> _buffer = new();
         private static readonly object _lock = new();
 
-        [ThreadStatic] private static MonoBehaviour _currentPublisher;
+        [ThreadStatic] private static MonoBehaviour _currentEmitter;
         [ThreadStatic] private static string _currentFile;
         [ThreadStatic] private static int _currentLine;
 
-        public readonly struct PublisherContextScope : IDisposable
+        public readonly struct EmitterContextScope : IDisposable
         {
-            private readonly MonoBehaviour _prevPublisher;
+            private readonly MonoBehaviour _prevEmitter;
             private readonly string _prevFile;
             private readonly int _prevLine;
 
-            public PublisherContextScope(MonoBehaviour publisher, string file, int line)
+            public EmitterContextScope(MonoBehaviour emitter, string file, int line)
             {
-                _prevPublisher = _currentPublisher;
+                _prevEmitter = _currentEmitter;
                 _prevFile = _currentFile;
                 _prevLine = _currentLine;
 
-                _currentPublisher = publisher;
+                _currentEmitter = emitter;
                 _currentFile = file;
                 _currentLine = line;
             }
 
             public void Dispose()
             {
-                _currentPublisher = _prevPublisher;
+                _currentEmitter = _prevEmitter;
                 _currentFile = _prevFile;
                 _currentLine = _prevLine;
             }
         }
 
-        public static PublisherContextScope Publisher(MonoBehaviour owner, string file, int line)
-            => new PublisherContextScope(owner, file, line);
+        public static EmitterContextScope Emitter(MonoBehaviour owner, string file, int line)
+            => new EmitterContextScope(owner, file, line);
 
         [InitializeOnLoadMethod]
         private static void InitializeEditorHooks()
@@ -60,11 +60,11 @@ namespace NekoSignal
             };
         }
 
-        public static SignalPublishLog BeginPublish(Type signalType, object payload)
+        public static SignalEmitLog BeginEmit(Type signalType, object payload)
         {
             if (!Enabled || signalType == null) return null;
 
-            var entry = new SignalPublishLog
+            var entry = new SignalEmitLog
             {
                 SignalType = signalType,
                 SignalTypeName = signalType.Name,
@@ -80,11 +80,11 @@ namespace NekoSignal
 
             try
             {
-                if (_currentPublisher)
+                if (_currentEmitter)
                 {
-                    entry.PublisherObject = _currentPublisher;
-                    entry.PublisherComponentName = _currentPublisher.GetType().Name;
-                    entry.PublisherGameObjectName = _currentPublisher.gameObject ? _currentPublisher.gameObject.name : "<GO>";
+                    entry.EmitterObject = _currentEmitter;
+                    entry.EmitterComponentName = _currentEmitter.GetType().Name;
+                    entry.EmitterGameObjectName = _currentEmitter.gameObject ? _currentEmitter.gameObject.name : "<GO>";
                 }
 
                 if (!string.IsNullOrEmpty(_currentFile))
@@ -106,10 +106,10 @@ namespace NekoSignal
 
                         entry.ScriptFilePath = f.GetFileName();
                         entry.ScriptLine = f.GetFileLineNumber();
-                        if (string.IsNullOrEmpty(entry.PublisherComponentName))
-                            entry.PublisherComponentName = dt.Name;
-                        if (string.IsNullOrEmpty(entry.PublisherGameObjectName) && _currentPublisher)
-                            entry.PublisherGameObjectName = _currentPublisher.gameObject ? _currentPublisher.gameObject.name : null;
+                        if (string.IsNullOrEmpty(entry.EmitterComponentName))
+                            entry.EmitterComponentName = dt.Name;
+                        if (string.IsNullOrEmpty(entry.EmitterGameObjectName) && _currentEmitter)
+                            entry.EmitterGameObjectName = _currentEmitter.gameObject ? _currentEmitter.gameObject.name : null;
                         break;
                     }
                 }
@@ -126,12 +126,12 @@ namespace NekoSignal
             return entry;
         }
 
-        public static void AddFilters(SignalPublishLog entry, ISignalFilter[] filters)
+        public static void AddFilters(SignalEmitLog entry, IReadOnlyList<ISignalFilter> filters)
         {
-            if (!Enabled || entry == null || filters == null || filters.Length == 0) return;
+            if (!Enabled || entry == null || filters == null || filters.Count == 0) return;
             try
             {
-                for (int i = 0; i < filters.Length; i++)
+                for (int i = 0; i < filters.Count; i++)
                 {
                     if (filters[i] != null) entry.Filters.Add(filters[i].GetType().Name);
                 }
@@ -139,7 +139,7 @@ namespace NekoSignal
             catch { }
         }
 
-        public static void AddInvocation(SignalPublishLog entry, string method, string component, string gameObject, int priority, bool threw, string exceptionMsg)
+        public static void AddInvocation(SignalEmitLog entry, string method, string component, string gameObject, int priority, bool threw, string exceptionMsg)
         {
             if (!Enabled || entry == null) return;
             entry.Invocations.Add(new SignalInvocationLog
@@ -153,7 +153,7 @@ namespace NekoSignal
             });
         }
 
-        public static List<SignalPublishLog> GetLogs()
+        public static List<SignalEmitLog> GetLogs()
         {
             lock (_lock) { return _buffer.ToList(); }
         }

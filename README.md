@@ -1,18 +1,18 @@
-# Neko Signal
+# NekoSignal
 
-A lightweight, type-safe event system for Unity that provides decoupled communication between game objects and systems.
+A lightweight, type-safe signal (event) bus for Unity. Supports attribute-based handlers, priority ordering, and subscriber-side filtering — with zero reflection overhead at emit time.
 
 ## Installation
 
 ### Via Git URL
 
-1. Install NekoLib package first by adding this via Unity Package Manager:
+1. Install NekoLib first via Unity Package Manager:
 
 ```
 https://github.com/boobosua/unity-nekolib.git
 ```
 
-2. Add this package via Unity Package Manager:
+2. Then add NekoSignal:
 
 ```
 https://github.com/boobosua/unity-neko-signal.git
@@ -20,232 +20,165 @@ https://github.com/boobosua/unity-neko-signal.git
 
 ## Features
 
-## What is NekoSignal?
-
-NekoSignal is a Unity package for sending and receiving strongly-typed signals (events) between scripts. It supports attribute-based handlers, automatic binding, and flexible filtering for signal delivery.
+- **Struct-only signals** — `ISignal` is constrained to `struct`, so signals are always stack-allocated value types; null payload is impossible by design.
+- **Attribute binding** — decorate methods with `[OnSignal]` and call `SignalHub.Bind(this)` once; no manual wiring.
+- **Priority ordering** — higher priority subscribers are called first; FIFO within the same priority.
+- **Subscriber-side filters** — `ISignalFilter` lets the _emitter_ restrict which subscribers receive a signal (e.g. team checks, object-active checks).
+- **Fluent filter API** — `signal.ConfigureFilters().Require(f1).Require(f2).Emit()` for one-off filtered emits.
+- **Zero allocation on hot paths** — pre-allocate filter arrays; the dispatcher accepts `ISignalFilter[]` directly.
+- **Editor tooling** — Signal Tracker window (`Window > Neko Indie > Signal Tracker`) shows live subscribers and emit history.
 
 ## Quick Start
 
-## Best Practices
+### 1. Define a signal
 
-- Define signals as `public readonly struct` implementing `ISignal` for immutability and performance.
-- Define filters as `public sealed class` implementing `ISignalFilter` if you do not need to extend them further.
-- Use `[OnSignal]` on private methods for signal handlers and bind with `SignalHub.Bind(this)` in `OnEnable`.
-
-> **Warning:** Do not use code stripping (such as Unity's Managed Stripping Level set to Medium or High, or IL2CPP stripping) when using the `SignalHub.Bind(this)` and `[OnSignal]` attribute approach. Stripping may remove private methods marked with `[OnSignal]`, causing signal handlers to stop working at runtime. To ensure correct behavior, set Managed Stripping Level to Disabled or add appropriate link.xml files to preserve your signal handler methods.
-
-1. **Create a signal structure**:
+Signals **must** be `struct` — this is enforced at the type-system level. Use `readonly struct` for immutability.
 
 ```csharp
+public readonly struct PlayerDied : ISignal { }
+
 public readonly struct PlayerHealthChanged : ISignal
 {
-    public int newHealth;
-    public int maxHealth;
+    public readonly int NewHealth;
+    public readonly int MaxHealth;
+
+    public PlayerHealthChanged(int newHealth, int maxHealth)
+    {
+        NewHealth = newHealth;
+        MaxHealth = maxHealth;
+    }
 }
 ```
 
-2. **Attribute-based subscription**:
+### 2. Subscribe with `[OnSignal]`
 
 ```csharp
 using NekoSignal;
 
 public class UIHealthBar : MonoBehaviour
 {
-    private void OnEnable()
-    {
-        SignalHub.Bind(this); // Automatically binds all [OnSignal] methods
-    }
+    private void OnEnable() => SignalHub.Bind(this);
+    private void OnDisable() => SignalHub.Unbind(this);
 
     [OnSignal]
-    private void OnHealthChanged(PlayerHealthChanged signal)
+    private void OnHealthChanged(PlayerHealthChanged s)
     {
-        healthBar.fillAmount = (float)signal.newHealth / signal.maxHealth;
+        healthBar.fillAmount = (float)s.NewHealth / s.MaxHealth;
     }
 }
 ```
 
-### Priority
+### 3. Emit
 
-NekoSignal supports simple subscription priorities. Higher priority values are invoked first. The default priority is `0`. Handlers with the same priority keep their subscription order (FIFO).
-
-Examples:
-
-Attribute-based handler with priority 5:
+From a `MonoBehaviour` (records the emitter for the Signal Tracker):
 
 ```csharp
-[OnSignal(typeof(PlayerHealthChanged), priority: 5)]
-private void OnHealthChanged(PlayerHealthChanged s) { /* runs earlier */ }
+this.Emit(new PlayerHealthChanged(health, maxHealth));
 ```
 
-Programmatic subscription with priority:
+From anywhere (no emitter context):
 
 ```csharp
-// Subscribe with priority - higher values run earlier
-this.Subscribe<PlayerHealthChanged>(handler, priority: 2);
-
-// Or when dynamically listening
-var dispose = this.Listen<PlayerHealthChanged>(handler, priority: 2);
-```
-
-Priority affects dispatch order only; filters are still evaluated per-subscriber at publish time and will not change priority ordering among the subscribers that pass the filters.
-
-3. **Publish signals with filters**:
-
-```csharp
-using NekoSignal;
-
-public class Player : MonoBehaviour
-{
-    private void TakeDamage(int damage)
-    {
-        health -= damage;
-        // Publish with filters (shorthand)
-        this.Publish(
-            new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth },
-            new OwnerIsActiveFilter(),
-            new CustomTeamFilter(teamId)
-        );
-    }
-}
+Signals.Emit(new PlayerHealthChanged(health, maxHealth));
 ```
 
 ## Usage Examples
 
-### Creating Custom Signal Filters
+### Priority
 
-You can extend `ISignalFilter` to create your own logic for filtering which subscribers receive a published signal. This is useful for targeting specific listeners based on custom rules (e.g., team membership, object state, etc).
-
-**Example: Only allow listeners on a specific team to receive the signal**
+Higher priority values are invoked first. Default is `0`. Handlers at the same priority are called in subscription order (FIFO).
 
 ```csharp
-using NekoSignal;
-using UnityEngine;
+// Attribute-based — runs before default-priority handlers
+[OnSignal(priority: 10)]
+private void OnHealthChanged(PlayerHealthChanged s) { }
 
-public sealed class TeamFilter : ISignalFilter
-{
-    private readonly int _teamId;
-
-    public TeamFilter(int teamId)
-    {
-        _teamId = teamId;
-    }
-
-    public bool Evaluate(MonoBehaviour owner)
-    {
-        // Example: Assume owner has a TeamMember component
-        var member = owner.GetComponent<TeamMember>();
-        return member != null && member.TeamId == _teamId;
-    }
-}
-
-// Usage when publishing a signal (shorthand):
-new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth }
-    .SetEmitter(this)
-    .Require(new TeamFilter(teamId))
-    .Publish();
+// Programmatic
+this.Subscribe<PlayerHealthChanged>(OnHealthChanged, priority: 10);
 ```
 
-### Creating Signals
+Priority affects dispatch order only. Filters are evaluated per-subscriber regardless of priority.
 
-Signals are simple data structures implementing `ISignal`:
-
-```csharp
-// Simple event signal
-public readonly struct GameStarted : ISignal { }
-
-// Signal with data
-public readonly struct PlayerHealthChanged : ISignal
-{
-    public int newHealth;
-    public int maxHealth;
-}
-
-// Complex signal with multiple properties
-public readonly struct ItemCollected : ISignal
-{
-    public string itemId;
-    public Vector3 position;
-    public ItemType type;
-    public int quantity;
-}
-```
-
-### Subscribing and Publishing
-
-```csharp
-using NekoSignal;
-
-public class Player : MonoBehaviour
-{
-    private void OnEnable()
-    {
-        SignalHub.Bind(this); // Binds all [OnSignal] methods
-    }
-
-    [OnSignal]
-    private void OnGameStarted(GameStarted signal)
-    {
-        InitializePlayer();
-    }
-
-    [OnSignal(typeof(ItemCollected))] // Explicit signal type
-    private void HandleItem(object signal)
-    {
-        var item = (ItemCollected)signal;
-        ShowItemPopup(item.itemId, item.position);
-    }
-
-    private void TakeDamage(int damage)
-    {
-        health -= damage;
-
-        // Publish with filters (shorthand)
-        this.Publish(
-            new PlayerHealthChanged { newHealth = health, maxHealth = maxHealth },
-            new OwnerIsActiveFilter(),
-            new CustomTeamFilter(teamId)
-        );
-    }
-}
-```
-
-### Manual Unsubscription
+### Programmatic Subscribe / Unsubscribe
 
 ```csharp
 public class TemporaryListener : MonoBehaviour
 {
-    private Action<GameStarted> gameStartedHandler;
+    private void OnEnable()  => this.Subscribe<GameStarted>(OnGameStarted);
+    private void OnDisable() => this.Unsubscribe<GameStarted>(OnGameStarted);
 
-    private void OnEnable()
-    {
-        gameStartedHandler = OnGameStarted;
-        // Subscribe (shorthand)
-        this.Subscribe<GameStarted>(gameStartedHandler);
-    }
+    private void OnGameStarted(GameStarted s) { }
+}
+```
 
-    private void SomeCondition()
-    {
-        // Manual unsubscribe when needed
-        this.Unsubscribe<GameStarted>(gameStartedHandler);
-    }
+### Filtered Emit
 
-    private void OnGameStarted(GameStarted signal)
+Filters run on the _emitter_ side and let you restrict delivery to subscribers whose `MonoBehaviour` owner passes all provided filters. Filters receive the subscriber's owner, not the emitter's.
+
+**One-off (fluent):**
+
+```csharp
+new EnemySpotted(target)
+    .ConfigureFilters()
+    .Require(new TeamFilter(teamId))
+    .Require(new ActiveFilter())
+    .Emit();
+```
+
+**Direct (inline):**
+
+```csharp
+this.Emit(new EnemySpotted(target), new TeamFilter(teamId), new ActiveFilter());
+```
+
+### Creating a Custom Filter
+
+```csharp
+public sealed class TeamFilter : ISignalFilter
+{
+    private readonly int _teamId;
+    public TeamFilter(int teamId) => _teamId = teamId;
+
+    public bool Evaluate(MonoBehaviour owner)
     {
-        // Handle game start
+        var member = owner.GetComponent<TeamMember>();
+        return member != null && member.TeamId == _teamId;
     }
 }
 ```
 
+## Best Practices
+
+- **`readonly struct` for signals** — immutable, stack-allocated, zero GC. Never use a class.
+- **`sealed class` for filters** — prevents accidental inheritance; no virtual dispatch overhead.
+- **Bind/Unbind symmetrically** — call `SignalHub.Bind(this)` in `OnEnable` and `SignalHub.Unbind(this)` in `OnDisable`.
+- **Pre-allocate filter arrays on hot paths** — every inline `this.Emit(signal, f1, f2)` call allocates a `params` array. For signals emitted every frame or per-physics-tick, pre-allocate once:
+
+```csharp
+private ISignalFilter[] _detectFilters;
+
+private void Awake()
+{
+    _detectFilters = new ISignalFilter[] { new ActiveFilter(), new TeamFilter(teamId) };
+}
+
+private void Update()
+{
+    if (DetectedEnemy(out var target))
+        Signals.Emit(new EnemyDetected(target), _detectFilters); // no allocation
+}
+```
+
+> **IL2CPP / stripping warning:** `[OnSignal]` handlers are discovered via reflection. If Managed Stripping Level is set to Medium or High, private handler methods may be removed. Set stripping to **Disabled** or preserve handler methods via a `link.xml`.
+
 ## Signal Tracker
 
-You can open the Signal Tracker window in Unity via `Window > Neko Indie > Signal Tracker` to view active signals and subscribers.
+Open via `Window > Neko Indie > Signal Tracker` to inspect active subscribers and a live emit log with emitter context, payload fields, and applied filters.
 
 ## Memory Management
 
-Signal subscriptions are automatically cleaned up when GameObjects are destroyed. `[OnSignal]` methods are auto-unsubscribed.
+Subscriptions are automatically removed when the owning `MonoBehaviour` or `GameObject` is destroyed. `[OnSignal]` handlers bound via `SignalHub.Bind` are cleaned up automatically.
 
 ## Requirements
 
-Requires Unity 2020.3 or later and NekoLib.
-
----
+Unity 6 or later. Requires NekoLib.

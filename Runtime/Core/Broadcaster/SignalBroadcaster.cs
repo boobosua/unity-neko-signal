@@ -13,13 +13,13 @@ namespace NekoSignal
         private static readonly Dictionary<Type, ISignalChannel> _signalChannels = new();
 
         /// <summary>Subscribes to a signal of the specified type with MonoBehaviour owner for auto cleanup.</summary>
-        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback) where T : ISignal
+        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
         {
             Subscribe(owner, callback, 0);
         }
 
         /// <summary>Subscribes to a signal with an explicit priority. Higher values are invoked earlier.</summary>
-        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : ISignal
+        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
         {
             if (owner == null)
             {
@@ -52,7 +52,7 @@ namespace NekoSignal
         }
 
         /// <summary>Unsubscribes from a signal using the callback reference.</summary>
-        public static void Unsubscribe<T>(MonoBehaviour owner, Action<T> callback) where T : ISignal
+        public static void Unsubscribe<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
         {
             if (owner == null)
             {
@@ -76,7 +76,7 @@ namespace NekoSignal
             }
         }
 
-        private static void Unsubscribe<T>(Action<T> callback) where T : ISignal
+        private static void Unsubscribe<T>(Action<T> callback) where T : struct, ISignal
         {
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
@@ -92,40 +92,69 @@ namespace NekoSignal
             }
         }
 
-        /// <summary>Publishes a new signal of the specified type.</summary>
-        public static void Publish<T>(T signal) where T : ISignal
+        /// <summary>Emits a signal of the specified type.</summary>
+        public static void Emit<T>(T signal) where T : struct, ISignal
         {
-            if (signal == null)
-            {
-                Log.Warn($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
-                return;
-            }
-
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
             {
-                ((SignalChannel<T>)channel).Publish(signal);
+                ((SignalChannel<T>)channel).Emit(signal);
             }
         }
 
-        /// <summary>Publishes a signal only to subscribers whose owner passes all filters.</summary>
-        public static void Publish<T>(T signal, params ISignalFilter[] filters) where T : ISignal
+        /// <summary>Emits a signal only to subscribers whose owner passes all filters.</summary>
+        internal static void Emit<T>(T signal, List<ISignalFilter> filters) where T : struct, ISignal
         {
-            if (signal == null)
-            {
-                Log.Warn($"[SignalBroadcaster] Cannot publish null signal of type {typeof(T).Name.Colorize(Swatch.VR)}.");
-                return;
-            }
-
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
             {
-                ((SignalChannel<T>)channel).PublishFiltered(signal, filters);
+                ((SignalChannel<T>)channel).EmitFiltered(signal, filters);
             }
+        }
+
+        /// <summary>Emits a signal only to subscribers whose owner passes all filters.</summary>
+        public static void Emit<T>(T signal, params ISignalFilter[] filters) where T : struct, ISignal
+        {
+            var type = typeof(T);
+            if (_signalChannels.TryGetValue(type, out var channel))
+            {
+                ((SignalChannel<T>)channel).EmitFiltered(signal, filters);
+            }
+        }
+
+        /// <summary>Emits a signal with editor debug context (caller file/line + optional emitter owner).</summary>
+        internal static void EmitWithDebugContext<T>(T signal, MonoBehaviour emitter, ISignalFilter[] filters) where T : struct, ISignal
+        {
+#if UNITY_EDITOR
+            string file = null; int line = 0;
+            try
+            {
+                var st = new System.Diagnostics.StackTrace(true);
+                for (int i = 0; i < st.FrameCount; i++)
+                {
+                    var f = st.GetFrame(i);
+                    var ns = f.GetMethod()?.DeclaringType?.Namespace ?? string.Empty;
+                    if (!string.IsNullOrEmpty(f.GetFileName()) && !ns.StartsWith("NekoSignal"))
+                    {
+                        file = f.GetFileName();
+                        line = f.GetFileLineNumber();
+                        break;
+                    }
+                }
+            }
+            catch { }
+
+            using (SignalLogStore.Emitter(emitter, file, line))
+            {
+                Emit(signal, filters);
+            }
+#else
+            Emit(signal, filters);
+#endif
         }
 
         /// <summary>Manually unsubscribes all receivers for a specific signal type.</summary>
-        public static void UnsubscribeAllOfType<T>() where T : ISignal
+        public static void UnsubscribeAllOfType<T>() where T : struct, ISignal
         {
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
@@ -147,7 +176,7 @@ namespace NekoSignal
         }
 
         /// <summary>Gets the number of active subscribers for a specific signal type.</summary>
-        public static int GetSubscriberCount<T>() where T : ISignal
+        public static int GetSubscriberCount<T>() where T : struct, ISignal
         {
             var type = typeof(T);
             return _signalChannels.TryGetValue(type, out var channel) ? channel.SubscriberCount : 0;

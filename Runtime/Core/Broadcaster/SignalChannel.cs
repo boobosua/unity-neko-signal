@@ -14,7 +14,7 @@ namespace NekoSignal
 #endif
     }
 
-    internal sealed partial class SignalChannel<T> : ISignalChannel where T : ISignal
+    internal sealed partial class SignalChannel<T> : ISignalChannel where T : struct, ISignal
     {
         private struct Sub
         {
@@ -74,12 +74,12 @@ namespace NekoSignal
             _pendingRemovals.Clear();
         }
 
-        public void Publish(T signal)
+        public void Emit(T signal)
         {
             if (_subs.Count == 0) return;
 
 #if UNITY_EDITOR
-            var logEntry = SignalLogStore.BeginPublish(typeof(T), signal);
+            var logEntry = SignalLogStore.BeginEmit(typeof(T), signal);
 #endif
             _isInvoking = true;
             try
@@ -127,13 +127,17 @@ namespace NekoSignal
             }
         }
 
-        public void PublishFiltered(T signal, ISignalFilter[] filters)
+        public void EmitFiltered(T signal, ISignalFilter[] filters) => EmitFilteredCore(signal, filters);
+
+        internal void EmitFiltered(T signal, List<ISignalFilter> filters) => EmitFilteredCore(signal, filters);
+
+        private void EmitFilteredCore(T signal, IReadOnlyList<ISignalFilter> filters)
         {
             if (_subs.Count == 0) return;
 
 #if UNITY_EDITOR
-            var logEntry = SignalLogStore.BeginPublish(typeof(T), signal);
-            if (filters != null && filters.Length > 0)
+            var logEntry = SignalLogStore.BeginEmit(typeof(T), signal);
+            if (filters != null && filters.Count > 0)
                 SignalLogStore.AddFilters(logEntry, filters);
 #endif
             _isInvoking = true;
@@ -154,8 +158,11 @@ namespace NekoSignal
                     bool pass = true;
                     if (filters != null)
                     {
-                        for (int f = 0; f < filters.Length; f++)
+                        for (int f = 0; f < filters.Count; f++)
                         {
+                            if (filters[f] == null)
+                                throw new ArgumentNullException(nameof(filters), $"Filter at index {f} is null.");
+
                             if (!filters[f].Evaluate(owner))
                             {
                                 pass = false;

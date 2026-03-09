@@ -618,7 +618,7 @@ namespace NekoSignal
 
             if (types.Count == 0)
             {
-                EditorGUILayout.HelpBox("No log entries yet. Trigger a publish to see logs.", MessageType.Info);
+                EditorGUILayout.HelpBox("No log entries yet. Trigger an emit to see logs.", MessageType.Info);
             }
             else
             {
@@ -640,7 +640,7 @@ namespace NekoSignal
         }
 
 #if UNITY_EDITOR
-        private void DrawLogEntry(SignalPublishLog e)
+        private void DrawLogEntry(SignalEmitLog e)
         {
             // Use plain container; the message itself will be a single rounded rectangle
             EditorGUILayout.BeginVertical(GUIStyle.none);
@@ -648,7 +648,7 @@ namespace NekoSignal
             // No header row; single-line message below
 
             // Invocation table header (compact)
-            // Single row per publish (no header, just message row)
+            // Single row per emit (no header, just message row)
             Rect rowRect = EditorGUILayout.GetControlRect(false, ROW_HEIGHT);
             // Draw one rounded rectangle background for the message and brighten inside to make foldout pop more
             GUI.Box(rowRect, GUIContent.none, EditorStyles.helpBox);
@@ -667,9 +667,9 @@ namespace NekoSignal
 
             // Compose message with clickable parts (leave space for triangle)
             var msgRect = new Rect(rowRect.x + 10 + foldW, rowRect.y, rowRect.width - (20 + foldW), rowRect.height);
-            DrawPublishMessage(msgRect, e);
+            DrawEmitMessage(msgRect, e);
 
-            // Clicking empty area of the message toggles payload foldout (handled within DrawPublishMessage as well).
+            // Clicking empty area of the message toggles payload foldout (handled within DrawEmitMessage as well).
 
             // Payload preview under the message
             if (e.PayloadExpanded)
@@ -710,7 +710,7 @@ namespace NekoSignal
 #endif
 
 #if UNITY_EDITOR
-        private void DrawPublishMessage(Rect rect, SignalPublishLog e)
+        private void DrawEmitMessage(Rect rect, SignalEmitLog e)
         {
             // Styles
             var baseStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 12 };
@@ -741,27 +741,27 @@ namespace NekoSignal
             var filterStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleLeft, fontSize = 10, fontStyle = FontStyle.Italic };
             filterStyle.normal.textColor = new Color(1f, 0.9f, 0.4f, 1f);
 
-            string comp = string.IsNullOrEmpty(e.PublisherComponentName) ? "<Component>" : e.PublisherComponentName;
+            string comp = string.IsNullOrEmpty(e.EmitterComponentName) ? "<Component>" : e.EmitterComponentName;
 
-            // Provide richer fallback when there is no GameObject (non-MonoBehaviour publishers like plain class/struct)
+            // Provide richer fallback when there is no GameObject (non-MonoBehaviour emitters like plain class/struct)
             string go;
-            if (!string.IsNullOrEmpty(e.PublisherGameObjectName))
+            if (!string.IsNullOrEmpty(e.EmitterGameObjectName))
             {
-                go = e.PublisherGameObjectName; // normal MonoBehaviour case
+                go = e.EmitterGameObjectName; // normal MonoBehaviour case
             }
-            else if (e.PublisherObject is GameObject goObj && goObj)
+            else if (e.EmitterObject is GameObject goObj && goObj)
             {
                 go = goObj.name; // explicit gameobject reference
             }
-            else if (e.PublisherObject != null)
+            else if (e.EmitterObject != null)
             {
                 // Non-GameObject UnityEngine.Object (e.g., ScriptableObject) or other object instance
-                go = e.PublisherObject.GetType().Name;
+                go = e.EmitterObject.GetType().Name;
             }
-            else if (!string.IsNullOrEmpty(e.PublisherComponentName))
+            else if (!string.IsNullOrEmpty(e.EmitterComponentName))
             {
                 // Fall back to component/type name if we captured it from stack trace
-                go = e.PublisherComponentName;
+                go = e.EmitterComponentName;
             }
             else if (!string.IsNullOrEmpty(e.ScriptFilePath))
             {
@@ -809,19 +809,19 @@ namespace NekoSignal
             // Draw labels/buttons
             if (GUI.Button(compRect, comp, compStyle))
             {
-                TryOpenPublisherScript(e);
+                TryOpenEmitterScript(e);
             }
             GUI.Label(inRect, " in ", baseStyle);
             if (GUI.Button(goRect, go, goStyle))
             {
-                if (e.PublisherObject)
+                if (e.EmitterObject)
                 {
-                    if (e.PublisherObject is MonoBehaviour mb && mb)
+                    if (e.EmitterObject is MonoBehaviour mb && mb)
                     {
                         EditorGUIUtility.PingObject(mb.gameObject);
                         Selection.activeGameObject = mb.gameObject;
                     }
-                    else if (e.PublisherObject is GameObject g && g)
+                    else if (e.EmitterObject is GameObject g && g)
                     {
                         EditorGUIUtility.PingObject(g);
                         Selection.activeGameObject = g;
@@ -852,12 +852,12 @@ namespace NekoSignal
             }
         }
 
-        private void TryOpenPublisherScript(SignalPublishLog e)
+        private void TryOpenEmitterScript(SignalEmitLog e)
         {
             if (string.IsNullOrEmpty(e.ScriptFilePath) || e.ScriptLine <= 0)
             {
                 // Fallback: open component script if we have an instance
-                if (e.PublisherObject is MonoBehaviour mb && mb)
+                if (e.EmitterObject is MonoBehaviour mb && mb)
                 {
                     var ms = MonoScript.FromMonoBehaviour(mb);
                     if (ms) AssetDatabase.OpenAsset(ms);

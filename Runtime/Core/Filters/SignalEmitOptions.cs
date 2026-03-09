@@ -1,28 +1,18 @@
 using System.Collections.Generic;
+using NekoLib.Extensions;
 using NekoLib.Logger;
-using UnityEngine;
 
 namespace NekoSignal
 {
-    /// <summary>Fluent emit pipeline to publish with subscriber filters.</summary>
-    public sealed class SignalEmitOptions<T> where T : ISignal
+    /// <summary>Fluent builder for filtered signal emitting.</summary>
+    public sealed class SignalEmitOptions<T> where T : struct, ISignal
     {
-        public T Signal { get; }
-        public MonoBehaviour Emitter { get; private set; }
-        private readonly List<ISignalFilter> _filters = new();
+        private readonly T _signal;
+        private List<ISignalFilter> _filters;
 
-        public SignalEmitOptions(T signal) { Signal = signal; }
+        internal SignalEmitOptions(T signal) { _signal = signal; }
 
-        public SignalEmitOptions<T> EmitBy(MonoBehaviour emitter)
-        {
-            if (emitter == null)
-            {
-                Log.Warn("[SignalEmitOptions] EmitBy received null emitter.");
-                return this;
-            }
-            Emitter = emitter;
-            return this;
-        }
+        internal List<ISignalFilter> Filters => _filters;
 
         /// <summary>Adds a subscriber-side filter evaluated against each listener's owner.</summary>
         public SignalEmitOptions<T> Require(ISignalFilter filter)
@@ -32,17 +22,18 @@ namespace NekoSignal
                 Log.Warn("[SignalEmitOptions] Require received null filter. Ignored.");
                 return this;
             }
-            _filters.Add(filter);
+
+            (_filters ??= new()).Add(filter);
             return this;
         }
 
-        /// <summary>Publishes the signal. Only matching subscribers are invoked when filters are set.</summary>
-        public void Publish()
+        /// <summary>Emits the stored signal. Only matching subscribers are invoked when filters are set.</summary>
+        public void Emit()
         {
-            if (_filters.Count == 0)
-                SignalBroadcaster.Publish(Signal);
+            if (_filters.IsNullOrEmpty())
+                SignalBroadcaster.Emit(_signal);
             else
-                SignalBroadcaster.Publish(Signal, _filters.ToArray());
+                SignalBroadcaster.Emit(_signal, _filters);
         }
     }
 }
