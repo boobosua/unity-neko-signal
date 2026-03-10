@@ -12,20 +12,8 @@ namespace NekoSignal
     {
         private static readonly Dictionary<Type, ISignalChannel> _signalChannels = new();
 
-        /// <summary>Subscribes to a signal of the specified type with MonoBehaviour owner for auto cleanup.</summary>
-        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
-        {
-            SubscribeCore(owner, callback, 0);
-        }
-
-        /// <summary>Subscribes to a signal with an explicit priority. Higher values are invoked earlier.</summary>
-        public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
-        {
-            SubscribeCore(owner, callback, priority);
-        }
-
-        /// <summary>Subscribes and returns the SignalReceiver registered with the monitor. Used by Listen.</summary>
-        internal static SignalReceiver SubscribeCore<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
+        /// <summary>Subscribes and returns a <see cref="SignalReceiver"/> handle. Called by SignalHub via reflection and by Listen.</summary>
+        internal static SignalReceiver Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
         {
             if (owner == null)
             {
@@ -39,7 +27,6 @@ namespace NekoSignal
                 return null;
             }
 
-            // Get or create the signal channel.
             var type = typeof(T);
             if (!_signalChannels.TryGetValue(type, out var channel))
             {
@@ -48,39 +35,11 @@ namespace NekoSignal
             }
             ((SignalChannel<T>)channel).AddCallback(callback, owner, priority);
 
-            // Handle monitor auto-unsubscription.
-            var receiver = new SignalReceiver(() => Unsubscribe(callback), typeof(T));
-            var monitor = owner.gameObject.GetOrAdd<SignalReceiverMonitor>();
-            monitor.AddReceiver(callback, receiver);
-            return receiver;
+            return new SignalReceiver(() => Unsubscribe(callback), typeof(T));
         }
 
-        /// <summary>Unsubscribes from a signal using the callback reference.</summary>
-        public static void Unsubscribe<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
-        {
-            if (owner == null)
-            {
-                Log.Warn("[SignalBroadcaster] Cannot unsubscribe with null owner.");
-                return;
-            }
-
-            if (callback == null)
-            {
-                Log.Warn($"[SignalBroadcaster] Cannot unsubscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
-                return;
-            }
-
-            if (owner.TryGetComponent(out SignalReceiverMonitor monitor))
-            {
-                monitor.RemoveReceiver(callback);
-            }
-            else
-            {
-                Unsubscribe(callback);
-            }
-        }
-
-        private static void Unsubscribe<T>(Action<T> callback) where T : struct, ISignal
+        /// <summary>Unsubscribes a callback. Called by SignalHub via reflection and by SignalReceiver.Dispose.</summary>
+        internal static void Unsubscribe<T>(Action<T> callback) where T : struct, ISignal
         {
             var type = typeof(T);
             if (_signalChannels.TryGetValue(type, out var channel))
@@ -151,34 +110,23 @@ namespace NekoSignal
 
             using (SignalLogStore.Emitter(emitter, file, line))
             {
-                if (hasFilters) Emit(signal, filters);
-                else Emit(signal);
+                if (hasFilters)
+                    Emit(signal, filters);
+                else
+                    Emit(signal);
             }
 #else
-            if (hasFilters) Emit(signal, filters);
-            else Emit(signal);
+            if (hasFilters) 
+                Emit(signal, filters);
+            else 
+                Emit(signal);
 #endif
         }
 
-        /// <summary>Manually unsubscribes all receivers for a specific signal type.</summary>
-        public static void UnsubscribeAllOfType<T>() where T : struct, ISignal
-        {
-            var type = typeof(T);
-            if (_signalChannels.TryGetValue(type, out var channel))
-            {
-                channel.Clear();
-                _signalChannels.Remove(type);
-            }
-        }
-
-        /// <summary>Manually unsubscribes all receivers for all signal types.</summary>
-        public static void UnsubscribeAll()
+        internal static void UnsubscribeAll()
         {
             foreach (var channel in _signalChannels.Values)
-            {
                 channel.Clear();
-            }
-
             _signalChannels.Clear();
         }
 

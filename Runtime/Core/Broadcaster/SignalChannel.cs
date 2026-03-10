@@ -28,7 +28,16 @@ namespace NekoSignal
         private bool _isInvoking;
         private readonly List<int> _pendingRemovals = new();
 
-        public int SubscriberCount => _subs.Count;
+        public int SubscriberCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < _subs.Count; i++)
+                    if (_subs[i].Owner) count++;
+                return count;
+            }
+        }
 
         public void AddCallback(Action<T> callback, MonoBehaviour owner, int priority)
         {

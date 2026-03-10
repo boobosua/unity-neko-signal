@@ -1,3 +1,11 @@
+## [2.0.0] - 2026-03-10
+
+### Major Refactor and API Changes
+
+- Refactor the entire codebase for better performance and maintainability.
+- Change `Signals` class to `SignalBus` for better clarity.
+- Remove some deprecated APIs and update documentation accordingly.
+
 ## [1.3.2] - 2025-11-08
 
 ### Improve Signal Tracker and Monitor Editor

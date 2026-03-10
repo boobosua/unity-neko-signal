@@ -15,15 +15,17 @@ namespace NekoSignal
         private static readonly HashSet<(int instanceId, Type type)> _activeBindings = new();
         private static readonly Dictionary<int, List<(Type SignalType, Delegate Del)>> _boundDelegates = new();
 
-        private static readonly MethodInfo _subscribeGenericWithPriority =
-            typeof(SignalBroadcaster).GetMethods(BindingFlags.Public | BindingFlags.Static)
+        private static readonly MethodInfo _subscribeMethod =
+            typeof(SignalBroadcaster).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
                 .FirstOrDefault(m => m.Name == nameof(SignalBroadcaster.Subscribe)
                                      && m.IsGenericMethodDefinition
                                      && m.GetParameters().Length == 3);
 
-        private static readonly MethodInfo _unsubscribeGeneric =
-            typeof(SignalBroadcaster).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(m => m.Name == nameof(SignalBroadcaster.Unsubscribe) && m.IsGenericMethodDefinition);
+        private static readonly MethodInfo _unsubscribeMethod =
+            typeof(SignalBroadcaster).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+                .FirstOrDefault(m => m.Name == nameof(SignalBroadcaster.Unsubscribe)
+                                     && m.IsGenericMethodDefinition
+                                     && m.GetParameters().Length == 1);
 
         private sealed class HandlerInfo
         {
@@ -36,7 +38,11 @@ namespace NekoSignal
         public static void Bind(MonoBehaviour target)
         {
             if (target == null) return;
-            if (_subscribeGenericWithPriority == null) return;
+            if (_subscribeMethod == null)
+            {
+                Log.Error("[SignalHub] Failed to resolve Subscribe via reflection. Bind will not work.");
+                return;
+            }
 
             var type = target.GetType();
             var key = (target.GetInstanceID(), type);
@@ -63,7 +69,7 @@ namespace NekoSignal
                         continue;
                     }
 
-                    var subscribeClosed = _subscribeGenericWithPriority.MakeGenericMethod(handler.SignalType);
+                    var subscribeClosed = _subscribeMethod.MakeGenericMethod(handler.SignalType);
                     subscribeClosed.Invoke(null, new object[] { target, del, handler.Priority });
                     delegateList.Add((handler.SignalType, del));
                 }
@@ -81,7 +87,11 @@ namespace NekoSignal
         public static void Unbind(MonoBehaviour target)
         {
             if (target == null) return;
-            if (_unsubscribeGeneric == null) return;
+            if (_unsubscribeMethod == null)
+            {
+                Log.Error("[SignalHub] Failed to resolve Unsubscribe via reflection. Unbind will not work.");
+                return;
+            }
 
             var type = target.GetType();
             var key = (target.GetInstanceID(), type);
@@ -93,8 +103,8 @@ namespace NekoSignal
                 {
                     try
                     {
-                        var unsubscribeClosed = _unsubscribeGeneric.MakeGenericMethod(signalType);
-                        unsubscribeClosed.Invoke(null, new object[] { target, del });
+                        var unsubscribeClosed = _unsubscribeMethod.MakeGenericMethod(signalType);
+                        unsubscribeClosed.Invoke(null, new object[] { del });
                     }
                     catch (Exception ex)
                     {

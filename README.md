@@ -22,17 +22,18 @@ https://github.com/boobosua/unity-neko-signal.git
 
 - **Struct-only signals** — `ISignal` is constrained to `struct`, so signals are always stack-allocated value types; null payload is impossible by design.
 - **Attribute binding** — decorate methods with `[OnSignal]` and call `SignalHub.Bind(this)` once; no manual wiring.
+- **Manual subscriptions** — `Listen<T>()` returns a `SignalReceiver`; call `Dispose()` to unsubscribe at any time.
 - **Priority ordering** — higher priority subscribers are called first; FIFO within the same priority.
-- **Subscriber-side filters** — `ISignalFilter` lets the _emitter_ restrict which subscribers receive a signal (e.g. team checks, object-active checks).
+- **Emitter-side filters** — `ISignalFilter` lets the emitter restrict which subscribers receive a signal (e.g. team checks, object-active checks).
 - **Fluent filter API** — `signal.ConfigureFilters().Require(f1).Require(f2).Emit()` for one-off filtered emits.
 - **Zero allocation on hot paths** — pre-allocate filter arrays; the dispatcher accepts `ISignalFilter[]` directly.
-- **Editor tooling** — Signal Tracker window (`Window > Neko Indie > Signal Tracker`) shows live subscribers and emit history.
+- **Editor tooling** — Signal Tracker window (`Window > Neko Framework > Signal Tracker`) with live subscription monitor, emit log, and memory leak detector.
 
 ## Quick Start
 
 ### 1. Define a signal
 
-Signals **must** be `struct` — this is enforced at the type-system level. Use `readonly struct` for immutability.
+Signals **must** be `struct` — enforced at the type-system level. Use `readonly struct` for immutability.
 
 ```csharp
 public readonly struct PlayerDied : ISignal { }
@@ -52,12 +53,14 @@ public readonly struct PlayerHealthChanged : ISignal
 
 ### 2. Subscribe with `[OnSignal]`
 
+Decorate handler methods with `[OnSignal]`, then call `SignalHub.Bind(this)` / `SignalHub.Unbind(this)`. NekoSignal discovers all matching methods via reflection at bind time.
+
 ```csharp
 using NekoSignal;
 
 public class UIHealthBar : MonoBehaviour
 {
-    private void OnEnable() => SignalHub.Bind(this);
+    private void OnEnable()  => SignalHub.Bind(this);
     private void OnDisable() => SignalHub.Unbind(this);
 
     [OnSignal]
@@ -79,7 +82,7 @@ this.Emit(new PlayerHealthChanged(health, maxHealth));
 From anywhere (no emitter context):
 
 ```csharp
-Signals.Emit(new PlayerHealthChanged(health, maxHealth));
+SignalBus.Emit(new PlayerHealthChanged(health, maxHealth));
 ```
 
 ## Usage Examples
@@ -93,27 +96,41 @@ Higher priority values are invoked first. Default is `0`. Handlers at the same p
 [OnSignal(priority: 10)]
 private void OnHealthChanged(PlayerHealthChanged s) { }
 
-// Programmatic
-this.Subscribe<PlayerHealthChanged>(OnHealthChanged, priority: 10);
+// Manual subscription with priority
+SignalReceiver _receiver;
+_receiver = this.Listen<PlayerHealthChanged>(OnHealthChanged, priority: 10);
 ```
 
 Priority affects dispatch order only. Filters are evaluated per-subscriber regardless of priority.
 
-### Programmatic Subscribe / Unsubscribe
+### Manual Subscribe with `Listen`
+
+Use `Listen` when you need to subscribe outside of `OnEnable/OnDisable`, conditionally, or for a limited lifetime. It returns a `SignalReceiver` — call `Dispose()` to unsubscribe.
 
 ```csharp
 public class TemporaryListener : MonoBehaviour
 {
-    private void OnEnable()  => this.Subscribe<GameStarted>(OnGameStarted);
-    private void OnDisable() => this.Unsubscribe<GameStarted>(OnGameStarted);
+    private SignalReceiver _receiver;
+
+    private void OnEnable()
+    {
+        _receiver = this.Listen<GameStarted>(OnGameStarted);
+    }
+
+    private void OnDisable()
+    {
+        _receiver.Dispose();
+    }
 
     private void OnGameStarted(GameStarted s) { }
 }
 ```
 
+`SignalReceiver.Dispose()` is idempotent — safe to call multiple times. You can also subscribe from anywhere via `SignalBus.Listen<T>(owner, callback)`.
+
 ### Filtered Emit
 
-Filters run on the _emitter_ side and let you restrict delivery to subscribers whose `MonoBehaviour` owner passes all provided filters. Filters receive the subscriber's owner, not the emitter's.
+Filters run on the emitter side and restrict delivery to subscribers whose `MonoBehaviour` owner passes all provided filters.
 
 **One-off (fluent):**
 
@@ -151,8 +168,9 @@ public sealed class TeamFilter : ISignalFilter
 
 - **`readonly struct` for signals** — immutable, stack-allocated, zero GC. Never use a class.
 - **`sealed class` for filters** — prevents accidental inheritance; no virtual dispatch overhead.
-- **Bind/Unbind symmetrically** — call `SignalHub.Bind(this)` in `OnEnable` and `SignalHub.Unbind(this)` in `OnDisable`.
-- **Pre-allocate filter arrays on hot paths** — every inline `this.Emit(signal, f1, f2)` call allocates a `params` array. For signals emitted every frame or per-physics-tick, pre-allocate once:
+- **Bind/Unbind symmetrically** — always pair `SignalHub.Bind(this)` in `OnEnable` with `SignalHub.Unbind(this)` in `OnDisable`. Forgetting `Unbind` leaks the delegate; the Memory Leaks tab in Signal Tracker will surface it.
+- **Dispose `Listen` receivers** — store the returned `SignalReceiver` and call `Dispose()` when done. Abandoned receivers are automatically cleaned up when the owner `MonoBehaviour` is destroyed, but explicit disposal is cleaner.
+- **Pre-allocate filter arrays on hot paths** — every inline `this.Emit(signal, f1, f2)` call allocates a `params` array. For signals emitted every frame, pre-allocate once:
 
 ```csharp
 private ISignalFilter[] _detectFilters;
@@ -165,19 +183,32 @@ private void Awake()
 private void Update()
 {
     if (DetectedEnemy(out var target))
-        Signals.Emit(new EnemyDetected(target), _detectFilters); // no allocation
+        SignalBus.Emit(new EnemyDetected(target), _detectFilters); // no allocation
 }
 ```
 
-> **IL2CPP / stripping warning:** `[OnSignal]` handlers are discovered via reflection. If Managed Stripping Level is set to Medium or High, private handler methods may be removed. Set stripping to **Disabled** or preserve handler methods via a `link.xml`.
+> **IL2CPP / stripping warning:** `[OnSignal]` handlers are discovered via reflection. If Managed Stripping Level is Medium or High, private handler methods may be stripped. Set stripping to **Disabled** or preserve them via a `link.xml`.
 
 ## Signal Tracker
 
-Open via `Window > Neko Indie > Signal Tracker` to inspect active subscribers and a live emit log with emitter context, payload fields, and applied filters.
+Open via `Window > Neko Framework > Signal Tracker`.
+
+| Tab                      | What it shows                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Subscription Monitor** | Live subscriber table per signal type — GameObject, component, method, and priority. Searchable.                                       |
+| **Signal Log**           | Emit history with emitter context, timestamp, payload fields, and applied filters. Configurable capacity.                              |
+| **Memory Leaks**         | MonoBehaviours that called `SignalHub.Bind` but were destroyed without calling `Unbind`. Cleared automatically when exiting Play Mode. |
 
 ## Memory Management
 
-Subscriptions are automatically removed when the owning `MonoBehaviour` or `GameObject` is destroyed. `[OnSignal]` handlers bound via `SignalHub.Bind` are cleaned up automatically.
+There are two subscription paths with different lifetime rules:
+
+| Path             | How to subscribe                             | How to unsubscribe                                                          |
+| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| `SignalHub.Bind` | Discovers `[OnSignal]` methods automatically | Must call `SignalHub.Unbind` — not automatic                                |
+| `Listen<T>`      | Returns a `SignalReceiver`                   | Call `receiver.Dispose()`, or it auto-cleans when the owner MB is destroyed |
+
+Forgetting `SignalHub.Unbind` keeps the delegate alive indefinitely. Check the **Memory Leaks** tab in Signal Tracker during Play Mode to detect these.
 
 ## Requirements
 
