@@ -23,24 +23,28 @@ namespace NekoSignal
             SignalBroadcaster.Unsubscribe(owner, callback);
         }
 
-        /// <summary>Emits a signal with optional filters.</summary>
+        /// <summary>Emits a signal with no filters.</summary>
+        public static void Emit<T>(T signal) where T : struct, ISignal
+        {
+            SignalBroadcaster.EmitWithDebugContext(signal, null, null);
+        }
+
+        /// <summary>Emits a signal with filters.</summary>
         public static void Emit<T>(T signal, params ISignalFilter[] filters) where T : struct, ISignal
         {
             SignalBroadcaster.EmitWithDebugContext(signal, null, filters);
         }
 
-        /// <summary>Subscribes and returns an Action to unsubscribe later.</summary>
-        public static Action Listen<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
+        /// <summary>Subscribes and returns an IDisposable to unsubscribe later.</summary>
+        public static IDisposable Listen<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
         {
-            SignalBroadcaster.Subscribe(owner, callback);
-            return () => SignalBroadcaster.Unsubscribe(owner, callback);
+            return SignalBroadcaster.SubscribeCore(owner, callback, 0);
         }
 
-        /// <summary>Subscribes with priority and returns an Action to unsubscribe later.</summary>
-        public static Action Listen<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
+        /// <summary>Subscribes with priority and returns an IDisposable to unsubscribe later.</summary>
+        public static IDisposable Listen<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
         {
-            SignalBroadcaster.Subscribe(owner, callback, priority);
-            return () => SignalBroadcaster.Unsubscribe(owner, callback);
+            return SignalBroadcaster.SubscribeCore(owner, callback, priority);
         }
 
         /// <summary>Unsubscribes all receivers of a specific signal type.</summary>

@@ -13,6 +13,7 @@ namespace NekoSignal
     {
         private static readonly Dictionary<Type, List<HandlerInfo>> _cache = new();
         private static readonly HashSet<(int instanceId, Type type)> _activeBindings = new();
+        private static readonly Dictionary<int, List<(Type SignalType, Delegate Del)>> _boundDelegates = new();
 
         private static readonly MethodInfo _subscribeGenericWithPriority =
             typeof(SignalBroadcaster).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -49,6 +50,7 @@ namespace NekoSignal
                 _cache[type] = handlers;
             }
 
+            var delegateList = new List<(Type, Delegate)>();
             foreach (var handler in handlers)
             {
                 try
@@ -63,6 +65,7 @@ namespace NekoSignal
 
                     var subscribeClosed = _subscribeGenericWithPriority.MakeGenericMethod(handler.SignalType);
                     subscribeClosed.Invoke(null, new object[] { target, del, handler.Priority });
+                    delegateList.Add((handler.SignalType, del));
                 }
                 catch (Exception ex)
                 {
@@ -70,6 +73,7 @@ namespace NekoSignal
                 }
             }
 
+            _boundDelegates[target.GetInstanceID()] = delegateList;
             _activeBindings.Add(key);
         }
 
@@ -82,27 +86,22 @@ namespace NekoSignal
             var type = target.GetType();
             var key = (target.GetInstanceID(), type);
 
-            if (!_cache.TryGetValue(type, out var handlers))
+            var instanceId = target.GetInstanceID();
+            if (_boundDelegates.TryGetValue(instanceId, out var delegateList))
             {
-                _activeBindings.Remove(key);
-                return;
-            }
-
-            foreach (var handler in handlers)
-            {
-                try
+                foreach (var (signalType, del) in delegateList)
                 {
-                    var actionType = typeof(Action<>).MakeGenericType(handler.SignalType);
-                    var del = Delegate.CreateDelegate(actionType, target, handler.Method, false);
-                    if (del == null) continue;
-
-                    var unsubscribeClosed = _unsubscribeGeneric.MakeGenericMethod(handler.SignalType);
-                    unsubscribeClosed.Invoke(null, new object[] { target, del });
+                    try
+                    {
+                        var unsubscribeClosed = _unsubscribeGeneric.MakeGenericMethod(signalType);
+                        unsubscribeClosed.Invoke(null, new object[] { target, del });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[SignalHub] Error unbinding {type.Name}: {ex}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Log.Error($"[SignalHub] Error unbinding {type.Name}.{handler.Method.Name}: {ex}");
-                }
+                _boundDelegates.Remove(instanceId);
             }
 
             _activeBindings.Remove(key);
@@ -149,6 +148,12 @@ namespace NekoSignal
                     if (!typeof(ISignal).IsAssignableFrom(sigType))
                     {
                         Log.Error($"[SignalHub] {type.Name}.{method.Name} parameter type {sigType.Name} does not implement ISignal.");
+                        continue;
+                    }
+
+                    if (!sigType.IsValueType)
+                    {
+                        Log.Error($"[SignalHub] {type.Name}.{method.Name}: signal type {sigType.Name} must be a struct.");
                         continue;
                     }
 

@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using NekoLib.Extensions;
-using NekoLib.Logger;
 
 namespace NekoSignal
 {
@@ -18,10 +18,7 @@ namespace NekoSignal
         public SignalEmitOptions<T> Require(ISignalFilter filter)
         {
             if (filter == null)
-            {
-                Log.Warn("[SignalEmitOptions] Require received null filter. Ignored.");
-                return this;
-            }
+                throw new ArgumentNullException(nameof(filter));
 
             (_filters ??= new()).Add(filter);
             return this;

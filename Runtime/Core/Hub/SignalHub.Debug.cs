@@ -14,6 +14,7 @@ namespace NekoSignal
                 {
                     _cache.Clear();
                     _activeBindings.Clear();
+                    _boundDelegates.Clear();
                 }
             };
         }

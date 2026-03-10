@@ -15,40 +15,44 @@ namespace NekoSignal
         /// <summary>Subscribes to a signal of the specified type with MonoBehaviour owner for auto cleanup.</summary>
         public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback) where T : struct, ISignal
         {
-            Subscribe(owner, callback, 0);
+            SubscribeCore(owner, callback, 0);
         }
 
         /// <summary>Subscribes to a signal with an explicit priority. Higher values are invoked earlier.</summary>
         public static void Subscribe<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
         {
+            SubscribeCore(owner, callback, priority);
+        }
+
+        /// <summary>Subscribes and returns the SignalReceiver registered with the monitor. Used by Listen.</summary>
+        internal static SignalReceiver SubscribeCore<T>(MonoBehaviour owner, Action<T> callback, int priority) where T : struct, ISignal
+        {
             if (owner == null)
             {
                 Log.Warn("[SignalBroadcaster] Cannot subscribe with null owner.");
-                return;
+                return null;
             }
 
             if (callback == null)
             {
                 Log.Warn($"[SignalBroadcaster] Cannot subscribe with null callback for signal type {typeof(T).Name.Colorize(Swatch.VR)}.");
-                return;
+                return null;
             }
 
             // Get or create the signal channel.
             var type = typeof(T);
-            if (_signalChannels.TryGetValue(type, out var channel))
+            if (!_signalChannels.TryGetValue(type, out var channel))
             {
-                ((SignalChannel<T>)channel).AddCallback(callback, owner, priority);
+                channel = new SignalChannel<T>();
+                _signalChannels[type] = channel;
             }
-            else
-            {
-                _signalChannels[type] = new SignalChannel<T>();
-                ((SignalChannel<T>)_signalChannels[type]).AddCallback(callback, owner, priority);
-            }
+            ((SignalChannel<T>)channel).AddCallback(callback, owner, priority);
 
             // Handle monitor auto-unsubscription.
             var receiver = new SignalReceiver(() => Unsubscribe(callback), typeof(T));
             var monitor = owner.gameObject.GetOrAdd<SignalReceiverMonitor>();
             monitor.AddReceiver(callback, receiver);
+            return receiver;
         }
 
         /// <summary>Unsubscribes from a signal using the callback reference.</summary>
@@ -125,6 +129,7 @@ namespace NekoSignal
         /// <summary>Emits a signal with editor debug context (caller file/line + optional emitter owner).</summary>
         internal static void EmitWithDebugContext<T>(T signal, MonoBehaviour emitter, ISignalFilter[] filters) where T : struct, ISignal
         {
+            bool hasFilters = filters != null && filters.Length > 0;
 #if UNITY_EDITOR
             string file = null; int line = 0;
             try
@@ -146,10 +151,12 @@ namespace NekoSignal
 
             using (SignalLogStore.Emitter(emitter, file, line))
             {
-                Emit(signal, filters);
+                if (hasFilters) Emit(signal, filters);
+                else Emit(signal);
             }
 #else
-            Emit(signal, filters);
+            if (hasFilters) Emit(signal, filters);
+            else Emit(signal);
 #endif
         }
 

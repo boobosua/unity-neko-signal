@@ -73,7 +73,6 @@ namespace NekoSignal
                 Id = ++_nextId,
             };
 
-            entry.PayloadIsNull = payload == null;
             entry.PayloadFields = BuildPayloadFields(payload, out var reflectionError);
             entry.PayloadReflectionError = reflectionError;
             entry.PayloadInspectableMembersFound = entry.PayloadFields != null && entry.PayloadFields.Count > 0;

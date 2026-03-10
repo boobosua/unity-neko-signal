@@ -33,6 +33,9 @@ namespace NekoSignal
             if (!typeof(ISignal).IsAssignableFrom(signalType))
                 throw new ArgumentException($"{signalType.Name.Colorize(Swatch.VR)} does not implement ISignal");
 
+            if (!signalType.IsValueType)
+                throw new ArgumentException($"{signalType.Name.Colorize(Swatch.VR)} must be a struct.");
+
             ExplicitSignalType = signalType;
             Priority = priority;
         }

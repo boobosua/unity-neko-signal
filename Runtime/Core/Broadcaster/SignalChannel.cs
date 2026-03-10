@@ -207,18 +207,19 @@ namespace NekoSignal
         {
             if (_pendingRemovals.Count == 0) return;
 
+            // Sort ascending, remove from highest index downward so earlier indices stay valid.
+            // Dedup handles the rare case where the same index appears twice (e.g. stale-owner sweep
+            // and a concurrent pending removal queued in the same dispatch).
             _pendingRemovals.Sort();
-            int write = 0;
-            for (int r = 1; r < _pendingRemovals.Count; r++)
-                if (_pendingRemovals[r] != _pendingRemovals[write])
-                    _pendingRemovals[++write] = _pendingRemovals[r];
-            int count = write + 1;
-
-            for (int idx = count - 1; idx >= 0; idx--)
+            int prev = -1;
+            for (int idx = _pendingRemovals.Count - 1; idx >= 0; idx--)
             {
                 int i = _pendingRemovals[idx];
-                if (i >= 0 && i < _subs.Count)
+                if (i != prev && i >= 0 && i < _subs.Count)
+                {
                     _subs.RemoveAt(i);
+                    prev = i;
+                }
             }
             _pendingRemovals.Clear();
         }

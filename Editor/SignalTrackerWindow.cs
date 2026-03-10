@@ -692,9 +692,7 @@ namespace NekoSignal
                     // Explicit message so users know foldout worked even if no fields available
                     var inner = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
                     EditorGUILayout.BeginVertical(inner);
-                    if (e.PayloadIsNull)
-                        EditorGUILayout.LabelField("Payload is null.", EditorStyles.miniLabel);
-                    else if (e.PayloadReflectionError)
+                    if (e.PayloadReflectionError)
                         EditorGUILayout.LabelField("Payload could not be inspected (reflection error).", EditorStyles.miniLabel);
                     else
                         EditorGUILayout.LabelField("Payload has no public/serialized fields or readable properties.", EditorStyles.miniLabel);

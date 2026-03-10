@@ -28,7 +28,6 @@ namespace NekoSignal
         public List<SignalInvocationLog> Invocations = new();
         public int Id;
 
-        public bool PayloadIsNull;
         public bool PayloadReflectionError;
         public bool PayloadInspectableMembersFound;
 
