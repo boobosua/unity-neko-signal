@@ -20,11 +20,11 @@ https://github.com/boobosua/unity-neko-signal.git
 
 ## Features
 
-- **Struct-only signals** — `ISignal` is constrained to `struct`, so signals are always stack-allocated value types; null payload is impossible by design.
+- **Struct-only signals** — subscribe and emit generics require `where T : struct, ISignal`, so signals are always stack-allocated value types; null payload is impossible by design.
 - **Attribute binding** — decorate methods with `[OnSignal]` and call `SignalHub.Bind(this)` once; no manual wiring.
-- **Manual subscriptions** — `Listen<T>()` returns a `SignalReceiver`; call `Dispose()` to unsubscribe at any time.
+- **Manual subscriptions** — `Listen<T>()` returns a `SignalReceiver`; call `Dispose()` to unsubscribe at any time. `SignalReceiver.IsActive` tells you whether the subscription is still live.
 - **Priority ordering** — higher priority subscribers are called first; FIFO within the same priority.
-- **Emitter-side filters** — `ISignalFilter` lets the emitter restrict which subscribers receive a signal (e.g. team checks, object-active checks).
+- **Emitter-side filters** — `ISignalFilter` lets the emitter restrict which subscribers receive a signal. Three built-in filters ship out of the box: `HasComponent<T>`, `InLayer`, and `WithTag`.
 - **Fluent filter API** — `signal.ConfigureFilters().Require(f1).Require(f2).Emit()` for one-off filtered emits.
 - **Zero allocation on hot paths** — pre-allocate filter arrays; the dispatcher accepts `ISignalFilter[]` directly.
 - **Editor tooling** — Signal Tracker window (`Window > Neko Framework > Signal Tracker`) with live subscription monitor, emit log, and memory leak detector.
@@ -33,9 +33,11 @@ https://github.com/boobosua/unity-neko-signal.git
 
 ### 1. Define a signal
 
-Signals **must** be `struct` — enforced at the type-system level. Use `readonly struct` for immutability.
+Signals **must** be `struct` — the subscribe/emit generics enforce `where T : struct, ISignal`. Use `readonly struct` for immutability.
 
 ```csharp
+using NekoSignal;
+
 public readonly struct PlayerDied : ISignal { }
 
 public readonly struct PlayerHealthChanged : ISignal
@@ -92,6 +94,8 @@ SignalBus.Emit(new PlayerHealthChanged(health, maxHealth));
 Higher priority values are invoked first. Default is `0`. Handlers at the same priority are called in subscription order (FIFO).
 
 ```csharp
+using NekoSignal;
+
 // Attribute-based — runs before default-priority handlers
 [OnSignal(priority: 10)]
 private void OnHealthChanged(PlayerHealthChanged s) { }
@@ -105,9 +109,11 @@ Priority affects dispatch order only. Filters are evaluated per-subscriber regar
 
 ### Manual Subscribe with `Listen`
 
-Use `Listen` when you need to subscribe outside of `OnEnable/OnDisable`, conditionally, or for a limited lifetime. It returns a `SignalReceiver` — call `Dispose()` to unsubscribe.
+Use `Listen` when you need to subscribe outside of `OnEnable/OnDisable`, conditionally, or for a limited lifetime. It returns a `SignalReceiver` — call `Dispose()` to unsubscribe. `SignalReceiver.IsActive` is `true` until `Dispose()` is called.
 
 ```csharp
+using NekoSignal;
+
 public class TemporaryListener : MonoBehaviour
 {
     private SignalReceiver _receiver;
@@ -135,6 +141,8 @@ Filters run on the emitter side and restrict delivery to subscribers whose `Mono
 **One-off (fluent):**
 
 ```csharp
+using NekoSignal;
+
 new EnemySpotted(target)
     .ConfigureFilters()
     .Require(new TeamFilter(teamId))
@@ -148,9 +156,29 @@ new EnemySpotted(target)
 this.Emit(new EnemySpotted(target), new TeamFilter(teamId), new ActiveFilter());
 ```
 
+### Built-in Filters
+
+NekoSignal ships three ready-to-use `ISignalFilter` implementations:
+
+```csharp
+using NekoSignal;
+
+// Only subscribers whose owner has component T
+new HasComponent<Rigidbody>()
+
+// Only subscribers whose owner GameObject is on the specified layer
+new InLayer(LayerMask.GetMask("Enemy"))
+
+// Only subscribers whose owner GameObject has the given Unity tag
+new WithTag("Player")
+```
+
 ### Creating a Custom Filter
 
 ```csharp
+using NekoSignal;
+using UnityEngine;
+
 public sealed class TeamFilter : ISignalFilter
 {
     private readonly int _teamId;
@@ -209,6 +237,18 @@ There are two subscription paths with different lifetime rules:
 | `Listen<T>`      | Returns a `SignalReceiver`                   | Call `receiver.Dispose()`, or it auto-cleans when the owner MB is destroyed |
 
 Forgetting `SignalHub.Unbind` keeps the delegate alive indefinitely. Check the **Memory Leaks** tab in Signal Tracker during Play Mode to detect these.
+
+To query how many subscribers are active for a given signal type at runtime:
+
+```csharp
+using NekoSignal;
+
+// From a MonoBehaviour
+int count = this.GetSubscriberCount<PlayerHealthChanged>();
+
+// From anywhere
+int count = SignalBus.GetSubscriberCount<PlayerHealthChanged>();
+```
 
 ## Requirements
 
