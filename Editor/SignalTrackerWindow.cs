@@ -8,7 +8,7 @@ namespace NekoSignal
 {
     public partial class SignalTrackerWindow : EditorWindow
     {
-        [MenuItem("Window/Neko Framework/Signal Tracker")]
+        [MenuItem("Tools/Neko Framework/Signal Tracker")]
         public static void ShowWindow()
         {
             GetWindow<SignalTrackerWindow>("Signal Tracker");
