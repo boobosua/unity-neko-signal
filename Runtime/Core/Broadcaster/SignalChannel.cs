@@ -24,12 +24,20 @@ namespace NekoSignal
         }
 
         private readonly List<Sub> _subs = new();
-        private int _activeCount;
 
         private bool _isInvoking;
         private readonly List<int> _pendingRemovals = new();
 
-        public int SubscriberCount => _activeCount;
+        public int SubscriberCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < _subs.Count; i++)
+                    if (_subs[i].Owner) count++;
+                return count;
+            }
+        }
 
         public void AddCallback(Action<T> callback, MonoBehaviour owner, int priority)
         {
@@ -50,8 +58,6 @@ namespace NekoSignal
                 _subs.Add(item);
             else
                 _subs.Insert(insertIndex, item);
-
-            _activeCount++;
         }
 
         public void RemoveCallback(Action<T> callback)
@@ -65,12 +71,10 @@ namespace NekoSignal
                     if (_isInvoking)
                     {
                         _pendingRemovals.Add(i);
-                        // Count is decremented in FlushPendingRemovals
                     }
                     else
                     {
                         _subs.RemoveAt(i);
-                        _activeCount--;
                     }
                     return;
                 }
@@ -81,7 +85,6 @@ namespace NekoSignal
         {
             _subs.Clear();
             _pendingRemovals.Clear();
-            _activeCount = 0;
         }
 
         public void Emit(T signal)
@@ -235,7 +238,6 @@ namespace NekoSignal
                 if (i != prev && i >= 0 && i < _subs.Count)
                 {
                     _subs.RemoveAt(i);
-                    _activeCount--;
                     prev = i;
                 }
             }

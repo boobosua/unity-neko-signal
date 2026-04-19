@@ -28,10 +28,7 @@ namespace NekoSignal
             for (int i = _subs.Count - 1; i >= 0; i--)
             {
                 if (!_subs[i].Owner)
-                {
                     _subs.RemoveAt(i);
-                    _activeCount--;
-                }
             }
         }
 
