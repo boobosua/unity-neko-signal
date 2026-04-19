@@ -26,7 +26,7 @@ namespace NekoSignal
         }
 
         /// <summary>Gets channel info for all active signal types.</summary>
-        public static IEnumerable<SignalChannelInfo> GetAllChannelInfo()
+        internal static IEnumerable<SignalChannelInfo> GetAllChannelInfo()
         {
             return _signalChannels.Select(kvp => new SignalChannelInfo
             {
@@ -37,7 +37,7 @@ namespace NekoSignal
         }
 
         /// <summary>Gets subscriber info for a signal type by Type object.</summary>
-        public static IEnumerable<SignalSubscriberInfo> GetSubscriberInfoByType(Type signalType)
+        internal static IEnumerable<SignalSubscriberInfo> GetSubscriberInfoByType(Type signalType)
         {
             if (!_signalChannels.TryGetValue(signalType, out var channel) || channel.SubscriberCount == 0)
                 return Enumerable.Empty<SignalSubscriberInfo>();
@@ -47,7 +47,7 @@ namespace NekoSignal
     }
 
     /// <summary>Information about a signal channel for editor tools.</summary>
-    public class SignalChannelInfo
+    internal class SignalChannelInfo
     {
         public Type SignalType { get; set; }
         public int SubscriberCount { get; set; }
@@ -55,7 +55,7 @@ namespace NekoSignal
     }
 
     /// <summary>Information about a signal subscriber for editor tools.</summary>
-    public class SignalSubscriberInfo
+    internal class SignalSubscriberInfo
     {
         public string MethodName { get; set; }
         public string TargetName { get; set; }

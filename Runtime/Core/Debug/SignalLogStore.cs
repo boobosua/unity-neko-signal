@@ -15,6 +15,7 @@ namespace NekoSignal
         public static int Capacity = 256;
 
         private static readonly LinkedList<SignalEmitLog> _buffer = new();
+        private static readonly Dictionary<Type, int> _typeCounts = new();
         private static readonly object _lock = new();
 
         [ThreadStatic] private static MonoBehaviour _currentEmitter;
@@ -118,8 +119,19 @@ namespace NekoSignal
             lock (_lock)
             {
                 _buffer.AddFirst(entry);
+                _typeCounts.TryGetValue(signalType, out int cur);
+                _typeCounts[signalType] = cur + 1;
+
                 while (_buffer.Count > Capacity)
+                {
+                    var removed = _buffer.Last.Value;
                     _buffer.RemoveLast();
+                    if (_typeCounts.TryGetValue(removed.SignalType, out int c))
+                    {
+                        if (c <= 1) _typeCounts.Remove(removed.SignalType);
+                        else _typeCounts[removed.SignalType] = c - 1;
+                    }
+                }
             }
 
             return entry;
@@ -161,13 +173,7 @@ namespace NekoSignal
         {
             lock (_lock)
             {
-                var counts = new Dictionary<Type, int>();
-                foreach (var b in _buffer)
-                {
-                    if (!counts.ContainsKey(b.SignalType)) counts[b.SignalType] = 0;
-                    counts[b.SignalType]++;
-                }
-                return counts
+                return _typeCounts
                     .OrderByDescending(kv => kv.Value)
                     .ThenBy(kv => kv.Key.Name)
                     .Select(kv => kv.Key)
@@ -177,7 +183,11 @@ namespace NekoSignal
 
         public static void Clear()
         {
-            lock (_lock) { _buffer.Clear(); }
+            lock (_lock)
+            {
+                _buffer.Clear();
+                _typeCounts.Clear();
+            }
         }
 
         private static int _nextId;

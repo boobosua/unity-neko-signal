@@ -1,12 +1,13 @@
 #if UNITY_EDITOR
 using System;
 using System.Linq;
+using NekoLib.Logger;
 using UnityEditor;
 using UnityEngine;
 
 namespace NekoSignal
 {
-    public partial class SignalTrackerWindow
+    internal partial class SignalTrackerWindow
     {
         private int _monitorSelectedIndex = 0;
         private Vector2 _monitorLeftScroll, _monitorRightScroll;
@@ -49,8 +50,6 @@ namespace NekoSignal
             EditorGUI.DrawRect(new Rect(sep2.x, sep2.y, sep2.width, 1f), BORDER_COLOR);
             EditorGUILayout.Space(2);
             _monitorLeftScroll = EditorGUILayout.BeginScrollView(_monitorLeftScroll, GUILayout.ExpandHeight(true));
-            var labelStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
-            var countStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
             for (int i = 0; i < channels.Count; i++)
             {
                 var ch = channels[i];
@@ -59,13 +58,11 @@ namespace NekoSignal
                 var rowRect = EditorGUILayout.GetControlRect(false, 22f);
                 bool isSelectedRow = (i == _monitorSelectedIndex);
                 if (isSelectedRow)
-                {
-                    EditorGUI.DrawRect(rowRect, EditorGUIUtility.isProSkin ? new Color(0.25f, 0.45f, 0.65f, 0.35f) : new Color(0.6f, 0.75f, 0.95f, 0.6f));
-                }
-                var nameRect = new Rect(rowRect.x + 6, rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
-                var countRect = new Rect(rowRect.xMax - 50, rowRect.y + 3, 44, rowRect.height - 6);
-                GUI.Label(nameRect, t.Name, labelStyle);
-                GUI.Label(countRect, count.ToString(), countStyle);
+                    EditorGUI.DrawRect(rowRect, _selectionColor);
+                var nameRect  = new Rect(rowRect.x + 6,      rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
+                var countRect = new Rect(rowRect.xMax - 50,  rowRect.y + 3, 44,                 rowRect.height - 6);
+                GUI.Label(nameRect, t.Name, _sidebarLabelStyle);
+                GUI.Label(countRect, count.ToString(), _sidebarCountStyle);
                 if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
                 {
                     _monitorSelectedIndex = i;
@@ -127,7 +124,7 @@ namespace NekoSignal
             _signalPages[signalType] = Mathf.Clamp(_signalPages[signalType], 0, Mathf.Max(0, totalPages - 1));
 
             int startIndex = _signalPages[signalType] * SUBSCRIBERS_PER_PAGE;
-            int endIndex = Mathf.Min(startIndex + SUBSCRIBERS_PER_PAGE, subscribers.Count);
+            int endIndex   = Mathf.Min(startIndex + SUBSCRIBERS_PER_PAGE, subscribers.Count);
 
             if (totalPages > 1)
             {
@@ -162,27 +159,24 @@ namespace NekoSignal
 
             float totalWidth = headerRect.width;
             float gameObjectWidth = totalWidth * 0.3f;
-            float componentWidth = totalWidth * 0.3f;
-            float methodWidth = totalWidth * 0.25f;
-            float priorityWidth = totalWidth * 0.15f;
+            float componentWidth  = totalWidth * 0.3f;
+            float methodWidth     = totalWidth * 0.25f;
+            float priorityWidth   = totalWidth * 0.15f;
 
             float x = headerRect.x;
-            var headerStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 12, alignment = TextAnchor.MiddleCenter };
-            headerStyle.normal.textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black;
-
-            DrawHeaderColumn(new Rect(x, headerRect.y, gameObjectWidth, headerRect.height), "GameObject", headerStyle);
+            DrawHeaderColumn(new Rect(x, headerRect.y, gameObjectWidth, headerRect.height), "GameObject");
             x += gameObjectWidth;
             DrawVerticalDivider(x, headerRect.y, headerRect.height);
 
-            DrawHeaderColumn(new Rect(x, headerRect.y, componentWidth, headerRect.height), "Component", headerStyle);
+            DrawHeaderColumn(new Rect(x, headerRect.y, componentWidth, headerRect.height), "Component");
             x += componentWidth;
             DrawVerticalDivider(x, headerRect.y, headerRect.height);
 
-            DrawHeaderColumn(new Rect(x, headerRect.y, methodWidth, headerRect.height), "Method", headerStyle);
+            DrawHeaderColumn(new Rect(x, headerRect.y, methodWidth, headerRect.height), "Method");
             x += methodWidth;
             DrawVerticalDivider(x, headerRect.y, headerRect.height);
 
-            DrawHeaderColumn(new Rect(x, headerRect.y, priorityWidth, headerRect.height), "Priority", headerStyle);
+            DrawHeaderColumn(new Rect(x, headerRect.y, priorityWidth, headerRect.height), "Priority");
         }
 
         private void DrawSubscriberTableRow(SignalSubscriberInfo subscriber, bool isEvenRow)
@@ -190,46 +184,43 @@ namespace NekoSignal
             Rect rowRect = EditorGUILayout.GetControlRect(false, ROW_HEIGHT);
 
             if (isEvenRow)
-                EditorGUI.DrawRect(rowRect, GetZebraStripeColor());
+                EditorGUI.DrawRect(rowRect, _zebraStripeColor);
 
             DrawTableBorders(rowRect);
 
-            float totalWidth = rowRect.width;
+            float totalWidth    = rowRect.width;
             float gameObjectWidth = totalWidth * 0.3f;
-            float componentWidth = totalWidth * 0.3f;
-            float methodWidth = totalWidth * 0.25f;
-            float priorityWidth = totalWidth * 0.15f;
+            float componentWidth  = totalWidth * 0.3f;
+            float methodWidth     = totalWidth * 0.25f;
+            float priorityWidth   = totalWidth * 0.15f;
 
             float x = rowRect.x;
 
             try
             {
-                Color defaultTextColor = EditorGUIUtility.isProSkin ? Color.white : Color.black;
-                Color dimmedTextColor = Color.Lerp(defaultTextColor, Color.gray, 0.2f);
-
                 DrawGameObjectColumn(new Rect(x, rowRect.y, gameObjectWidth, rowRect.height), subscriber);
                 x += gameObjectWidth;
                 DrawVerticalDivider(x, rowRect.y, rowRect.height);
 
                 var componentName = GetComponentDisplayName(subscriber);
-                if (componentName.Length > 30) componentName = componentName.Substring(0, 27) + "...";
-                DrawSubscriberColumn(new Rect(x, rowRect.y, componentWidth, rowRect.height), componentName, dimmedTextColor);
+                if (componentName.Length > NAME_TRUNCATE_COMPONENT)
+                    componentName = componentName.Substring(0, NAME_TRUNCATE_COMPONENT - 3) + "...";
+                DrawSubscriberCellDim(new Rect(x, rowRect.y, componentWidth, rowRect.height), componentName);
                 x += componentWidth;
                 DrawVerticalDivider(x, rowRect.y, rowRect.height);
 
                 var methodDisplayName = GetMethodDisplayName(subscriber.MethodName);
                 var methodRect = new Rect(x, rowRect.y, methodWidth, rowRect.height);
-                var linkCenter = new GUIStyle(EditorStyles.linkLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
-                if (GUI.Button(new Rect(methodRect.x + 8, methodRect.y, methodRect.width - 16, methodRect.height), methodDisplayName, linkCenter))
+                if (GUI.Button(new Rect(methodRect.x + 8, methodRect.y, methodRect.width - 16, methodRect.height), methodDisplayName, _tableLinkCenterStyle))
                     TryOpenSubscriberMethod(subscriber);
                 x += methodWidth;
                 DrawVerticalDivider(x, rowRect.y, rowRect.height);
 
-                DrawSubscriberColumn(new Rect(x, rowRect.y, priorityWidth, rowRect.height), subscriber.Priority.ToString(), dimmedTextColor);
+                DrawSubscriberCellDim(new Rect(x, rowRect.y, priorityWidth, rowRect.height), subscriber.Priority.ToString());
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SignalTracker] Error drawing subscriber row: {e}");
+                Log.Error($"[SignalTracker] Error drawing subscriber row: {e}");
             }
         }
 
@@ -244,12 +235,9 @@ namespace NekoSignal
             return subscriber?.TargetName ?? "N/A";
         }
 
-        private void DrawSubscriberColumn(Rect rect, string text, Color textColor)
+        private void DrawSubscriberCellDim(Rect rect, string text)
         {
-            var centeredRect = new Rect(rect.x + 8, rect.y, rect.width - 16, rect.height);
-            var style = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
-            style.normal.textColor = textColor;
-            GUI.Label(centeredRect, text, style);
+            GUI.Label(new Rect(rect.x + 8, rect.y, rect.width - 16, rect.height), text, _tableCellDimStyle);
         }
 
         private void DrawGameObjectColumn(Rect rect, SignalSubscriberInfo subscriber)
@@ -259,11 +247,10 @@ namespace NekoSignal
             if (subscriber.OwnerGameObject != null)
             {
                 var gameObjectName = subscriber.OwnerGameObject.name;
-                if (gameObjectName.Length > 25)
-                    gameObjectName = gameObjectName.Substring(0, 22) + "...";
+                if (gameObjectName.Length > NAME_TRUNCATE_GAMEOBJECT)
+                    gameObjectName = gameObjectName.Substring(0, NAME_TRUNCATE_GAMEOBJECT - 3) + "...";
 
-                var linkStyle = new GUIStyle(EditorStyles.linkLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
-                if (GUI.Button(centeredRect, gameObjectName, linkStyle))
+                if (GUI.Button(centeredRect, gameObjectName, _tableLinkCenterStyle))
                 {
                     EditorGUIUtility.PingObject(subscriber.OwnerGameObject);
                     Selection.activeGameObject = subscriber.OwnerGameObject;
@@ -272,11 +259,10 @@ namespace NekoSignal
             else if (subscriber.TargetObject != null)
             {
                 var targetObjectName = subscriber.TargetObject.name;
-                if (targetObjectName.Length > 25)
-                    targetObjectName = targetObjectName.Substring(0, 22) + "...";
+                if (targetObjectName.Length > NAME_TRUNCATE_GAMEOBJECT)
+                    targetObjectName = targetObjectName.Substring(0, NAME_TRUNCATE_GAMEOBJECT - 3) + "...";
 
-                var linkStyle = new GUIStyle(EditorStyles.linkLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
-                if (GUI.Button(centeredRect, targetObjectName, linkStyle))
+                if (GUI.Button(centeredRect, targetObjectName, _tableLinkCenterStyle))
                 {
                     EditorGUIUtility.PingObject(subscriber.TargetObject);
                     Selection.activeObject = subscriber.TargetObject;
@@ -284,9 +270,9 @@ namespace NekoSignal
             }
             else
             {
-                Color defaultTextColor = EditorGUIUtility.isProSkin ? Color.white : Color.black;
-                Color dimmedTextColor = Color.Lerp(defaultTextColor, Color.gray, 0.3f);
-                DrawSubscriberColumn(rect, "N/A", dimmedTextColor);
+                _tableCellStyle.normal.textColor = _naTextColor;
+                GUI.Label(centeredRect, "N/A", _tableCellStyle);
+                _tableCellStyle.normal.textColor = _defaultTextColor;
             }
         }
 

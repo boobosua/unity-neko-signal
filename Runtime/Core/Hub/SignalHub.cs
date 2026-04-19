@@ -27,11 +27,29 @@ namespace NekoSignal
                                      && m.IsGenericMethodDefinition
                                      && m.GetParameters().Length == 1);
 
+        // Closed generic MethodInfo cache — avoids MakeGenericMethod on every Bind call for the same signal type.
+        private static readonly Dictionary<Type, MethodInfo> _subscribeMethodCache = new();
+        private static readonly Dictionary<Type, MethodInfo> _unsubscribeMethodCache = new();
+
         private sealed class HandlerInfo
         {
             public Type SignalType;
             public MethodInfo Method;
             public int Priority;
+        }
+
+        private static MethodInfo GetSubscribeForType(Type signalType)
+        {
+            if (!_subscribeMethodCache.TryGetValue(signalType, out var m))
+                _subscribeMethodCache[signalType] = m = _subscribeMethod.MakeGenericMethod(signalType);
+            return m;
+        }
+
+        private static MethodInfo GetUnsubscribeForType(Type signalType)
+        {
+            if (!_unsubscribeMethodCache.TryGetValue(signalType, out var m))
+                _unsubscribeMethodCache[signalType] = m = _unsubscribeMethod.MakeGenericMethod(signalType);
+            return m;
         }
 
         /// <summary>Discovers and subscribes all [OnSignal] methods on the target to their respective signal types.</summary>
@@ -69,8 +87,7 @@ namespace NekoSignal
                         continue;
                     }
 
-                    var subscribeClosed = _subscribeMethod.MakeGenericMethod(handler.SignalType);
-                    subscribeClosed.Invoke(null, new object[] { target, del, handler.Priority });
+                    GetSubscribeForType(handler.SignalType).Invoke(null, new object[] { target, del, handler.Priority });
                     delegateList.Add((handler.SignalType, del));
                 }
                 catch (Exception ex)
@@ -103,8 +120,7 @@ namespace NekoSignal
                 {
                     try
                     {
-                        var unsubscribeClosed = _unsubscribeMethod.MakeGenericMethod(signalType);
-                        unsubscribeClosed.Invoke(null, new object[] { del });
+                        GetUnsubscribeForType(signalType).Invoke(null, new object[] { del });
                     }
                     catch (Exception ex)
                     {

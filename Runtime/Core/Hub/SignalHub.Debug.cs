@@ -17,12 +17,14 @@ namespace NekoSignal
                     _cache.Clear();
                     _activeBindings.Clear();
                     _boundDelegates.Clear();
+                    _subscribeMethodCache.Clear();
+                    _unsubscribeMethodCache.Clear();
                 }
             };
         }
 
         /// <summary>Returns display names of bound instances whose MonoBehaviour has been destroyed without calling Unbind.</summary>
-        public static IEnumerable<string> GetLeakedBindings()
+        internal static IEnumerable<string> GetLeakedBindings()
         {
             foreach (var kvp in _boundDelegates)
             {

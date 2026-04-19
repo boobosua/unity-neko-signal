@@ -2,13 +2,13 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using NekoLib.Logger;
 using UnityEditor;
 using UnityEngine;
 
 namespace NekoSignal
 {
-    public partial class SignalTrackerWindow
+    internal partial class SignalTrackerWindow
     {
         private int _selectedLogSignalIndex = 0;
         private Type _selectedLogSignalType = null;
@@ -16,7 +16,7 @@ namespace NekoSignal
 
         private void DrawSignalLogView()
         {
-            var logs = SignalLogStore.GetLogs();
+            var logs  = SignalLogStore.GetLogs();
             var types = SignalLogStore.GetSignalTypes().ToList();
 
             // Keep selection stable across dynamic type reordering
@@ -24,7 +24,7 @@ namespace NekoSignal
             {
                 if (_selectedLogSignalType == null || !types.Contains(_selectedLogSignalType))
                 {
-                    _selectedLogSignalType = types[0];
+                    _selectedLogSignalType  = types[0];
                     _selectedLogSignalIndex = 0;
                 }
                 else
@@ -42,25 +42,21 @@ namespace NekoSignal
             EditorGUI.DrawRect(new Rect(sep2.x, sep2.y, sep2.width, 1f), BORDER_COLOR);
             EditorGUILayout.Space(2);
             _logLeftScroll = EditorGUILayout.BeginScrollView(_logLeftScroll, GUILayout.ExpandHeight(true));
-            var labelStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft };
-            var countStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
             for (int i = 0; i < types.Count; i++)
             {
-                var t = types[i];
+                var t     = types[i];
                 var count = logs.Count(l => l.SignalType == t);
                 var rowRect = EditorGUILayout.GetControlRect(false, 22f);
                 bool selected = (t == _selectedLogSignalType);
                 if (selected)
-                {
-                    EditorGUI.DrawRect(rowRect, EditorGUIUtility.isProSkin ? new Color(0.25f, 0.45f, 0.65f, 0.35f) : new Color(0.6f, 0.75f, 0.95f, 0.6f));
-                }
-                var nameRect = new Rect(rowRect.x + 6, rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
-                var countRect = new Rect(rowRect.xMax - 50, rowRect.y + 3, 44, rowRect.height - 6);
-                GUI.Label(nameRect, t.Name, labelStyle);
-                GUI.Label(countRect, count.ToString(), countStyle);
+                    EditorGUI.DrawRect(rowRect, _selectionColor);
+                var nameRect  = new Rect(rowRect.x + 6,     rowRect.y + 3, rowRect.width - 60, rowRect.height - 6);
+                var countRect = new Rect(rowRect.xMax - 50, rowRect.y + 3, 44,                 rowRect.height - 6);
+                GUI.Label(nameRect,  t.Name, _sidebarLabelStyle);
+                GUI.Label(countRect, count.ToString(), _sidebarCountStyle);
                 if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
                 {
-                    _selectedLogSignalType = t;
+                    _selectedLogSignalType  = t;
                     _selectedLogSignalIndex = i;
                     Event.current.Use();
                 }
@@ -116,15 +112,14 @@ namespace NekoSignal
         {
             EditorGUILayout.BeginVertical(GUIStyle.none);
 
-            Rect rowRect = EditorGUILayout.GetControlRect(false, ROW_HEIGHT);
+            Rect rowRect  = EditorGUILayout.GetControlRect(false, ROW_HEIGHT);
             GUI.Box(rowRect, GUIContent.none, EditorStyles.helpBox);
             var innerRect = new Rect(rowRect.x + 3, rowRect.y + 3, rowRect.width - 6, rowRect.height - 6);
-            var bg = EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.06f);
-            EditorGUI.DrawRect(innerRect, bg);
+            EditorGUI.DrawRect(innerRect, _zebraStripeColor);
 
-            float foldW = 14f;
-            var foldRect = new Rect(rowRect.x + 6, rowRect.y + (rowRect.height - EditorGUIUtility.singleLineHeight) * 0.5f, foldW, EditorGUIUtility.singleLineHeight);
-            bool newExpanded = EditorGUI.Foldout(foldRect, e.PayloadExpanded, GUIContent.none, true);
+            float foldW    = 14f;
+            var   foldRect = new Rect(rowRect.x + 6, rowRect.y + (rowRect.height - EditorGUIUtility.singleLineHeight) * 0.5f, foldW, EditorGUIUtility.singleLineHeight);
+            bool  newExpanded = EditorGUI.Foldout(foldRect, e.PayloadExpanded, GUIContent.none, true);
             if (newExpanded != e.PayloadExpanded)
                 e.PayloadExpanded = newExpanded;
 
@@ -160,34 +155,6 @@ namespace NekoSignal
 
         private void DrawEmitMessage(Rect rect, SignalEmitLog e)
         {
-            var baseStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 12 };
-            var compStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 12 };
-            var goStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 12 };
-
-            if (EditorGUIUtility.isProSkin)
-            {
-                compStyle.normal.textColor = new Color(0.55f, 0.8f, 1f, 1f);
-                compStyle.hover.textColor = new Color(0.65f, 0.9f, 1f, 1f);
-                compStyle.active.textColor = new Color(0.8f, 0.95f, 1f, 1f);
-                goStyle.normal.textColor = new Color(0.6f, 0.95f, 0.9f, 1f);
-                goStyle.hover.textColor = new Color(0.7f, 1f, 0.95f, 1f);
-                goStyle.active.textColor = new Color(0.85f, 1f, 0.98f, 1f);
-            }
-            else
-            {
-                compStyle.normal.textColor = new Color(0.05f, 0.35f, 0.75f, 1f);
-                compStyle.hover.textColor = new Color(0.1f, 0.45f, 0.9f, 1f);
-                compStyle.active.textColor = new Color(0.15f, 0.5f, 1f, 1f);
-                goStyle.normal.textColor = new Color(0f, 0.45f, 0.4f, 1f);
-                goStyle.hover.textColor = new Color(0f, 0.6f, 0.55f, 1f);
-                goStyle.active.textColor = new Color(0f, 0.7f, 0.65f, 1f);
-            }
-
-            var timeStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 11, fontStyle = FontStyle.Bold };
-            var timeBadgeStyle = new GUIStyle(EditorStyles.helpBox) { alignment = TextAnchor.MiddleCenter, padding = new RectOffset(8, 8, 2, 2) };
-            var filterStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleLeft, fontSize = 10, fontStyle = FontStyle.Italic };
-            filterStyle.normal.textColor = new Color(1f, 0.9f, 0.4f, 1f);
-
             string comp = string.IsNullOrEmpty(e.EmitterComponentName) ? "<Component>" : e.EmitterComponentName;
 
             string go;
@@ -207,24 +174,24 @@ namespace NekoSignal
             else
                 go = e.SignalTypeName ?? "<Source>";
 
-            string atTxt = " at ";
+            string atTxt  = " at ";
             string timeTxt = e.Time.ToString("HH:mm:ss");
 
-            Vector2 compSize = compStyle.CalcSize(new GUIContent(comp));
-            Vector2 inSize = baseStyle.CalcSize(new GUIContent(" in "));
-            Vector2 goSize = goStyle.CalcSize(new GUIContent(go));
-            Vector2 raisedSize = baseStyle.CalcSize(new GUIContent(" raised "));
-            Vector2 atSize = baseStyle.CalcSize(new GUIContent(atTxt));
-            Vector2 timeSize = timeStyle.CalcSize(new GUIContent(timeTxt));
+            Vector2 compSize    = _logCompStyle.CalcSize(new GUIContent(comp));
+            Vector2 inSize      = _logBaseStyle.CalcSize(new GUIContent(" in "));
+            Vector2 goSize      = _logGoStyle.CalcSize(new GUIContent(go));
+            Vector2 raisedSize  = _logBaseStyle.CalcSize(new GUIContent(" raised "));
+            Vector2 atSize      = _logBaseStyle.CalcSize(new GUIContent(atTxt));
+            Vector2 timeSize    = _logTimeStyle.CalcSize(new GUIContent(timeTxt));
 
             float x = rect.x;
-            var compRect = new Rect(x, rect.y, compSize.x, rect.height); x += compSize.x;
-            var inRect = new Rect(x, rect.y, inSize.x, rect.height); x += inSize.x;
-            var goRect = new Rect(x, rect.y, goSize.x, rect.height); x += goSize.x;
-            var raisedRect = new Rect(x, rect.y, raisedSize.x, rect.height); x += raisedSize.x;
-            var atRect = new Rect(x, rect.y, atSize.x, rect.height); x += atSize.x;
+            var compRect    = new Rect(x, rect.y, compSize.x,   rect.height); x += compSize.x;
+            var inRect      = new Rect(x, rect.y, inSize.x,     rect.height); x += inSize.x;
+            var goRect      = new Rect(x, rect.y, goSize.x,     rect.height); x += goSize.x;
+            var raisedRect  = new Rect(x, rect.y, raisedSize.x, rect.height); x += raisedSize.x;
+            var atRect      = new Rect(x, rect.y, atSize.x,     rect.height); x += atSize.x;
 
-            float padV = 4f, padW = 6f;
+            float padV  = 4f, padW = 6f;
             float badgeW = timeSize.x + padW * 2f;
             float badgeH = timeSize.y + padV;
             var timeRect = new Rect(x, rect.y + (rect.height - badgeH) * 0.5f, badgeW, badgeH); x += timeRect.width + 6f;
@@ -233,13 +200,13 @@ namespace NekoSignal
             if (e.Filters != null && e.Filters.Count > 0)
                 filterLabel = " filter by " + string.Join(", ", e.Filters);
             Vector2 filterSize = Vector2.zero;
-            if (!string.IsNullOrEmpty(filterLabel)) filterSize = filterStyle.CalcSize(new GUIContent(filterLabel));
+            if (!string.IsNullOrEmpty(filterLabel)) filterSize = _logFilterStyle.CalcSize(new GUIContent(filterLabel));
             var filterRect = new Rect(x, rect.y, Mathf.Min(filterSize.x, rect.xMax - x), rect.height);
 
-            if (GUI.Button(compRect, comp, compStyle))
+            if (GUI.Button(compRect, comp, _logCompStyle))
                 TryOpenEmitterScript(e);
-            GUI.Label(inRect, " in ", baseStyle);
-            if (GUI.Button(goRect, go, goStyle))
+            GUI.Label(inRect, " in ", _logBaseStyle);
+            if (GUI.Button(goRect, go, _logGoStyle))
             {
                 if (e.EmitterObject)
                 {
@@ -255,16 +222,16 @@ namespace NekoSignal
                     }
                 }
             }
-            GUI.Label(raisedRect, " raised ", baseStyle);
-            GUI.Label(atRect, atTxt, baseStyle);
+            GUI.Label(raisedRect, " raised ", _logBaseStyle);
+            GUI.Label(atRect, atTxt, _logBaseStyle);
 
             var prev = GUI.color;
-            GUI.color = EditorGUIUtility.isProSkin ? new Color(0.15f, 0.85f, 0.95f, 0.9f) : new Color(0f, 0.65f, 0.7f, 0.9f);
-            GUI.Box(timeRect, timeTxt, timeBadgeStyle);
+            GUI.color = _logTimeBadgeColor;
+            GUI.Box(timeRect, timeTxt, _logTimeBadgeStyle);
             GUI.color = prev;
 
             if (!string.IsNullOrEmpty(filterLabel))
-                GUI.Label(filterRect, filterLabel, filterStyle);
+                GUI.Label(filterRect, filterLabel, _logFilterStyle);
 
             var evt = Event.current;
             if (evt.type == EventType.MouseUp && rect.Contains(evt.mousePosition))
@@ -332,12 +299,11 @@ namespace NekoSignal
                 }
 
                 var lines = File.ReadAllLines(path);
-                var pattern = @"\b" + Regex.Escape(subscriber.MethodName) + @"\s*\(";
-                var rx = new Regex(pattern);
+                var searchTerm = subscriber.MethodName + "(";
                 int lineNumber = -1;
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    if (rx.IsMatch(lines[i]))
+                    if (lines[i].Contains(searchTerm))
                     {
                         lineNumber = i + 1;
                         break;
@@ -351,7 +317,7 @@ namespace NekoSignal
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[SignalTracker] Failed to open method: {ex.Message}");
+                Log.Warn($"[SignalTracker] Failed to open method: {ex.Message}");
             }
         }
     }

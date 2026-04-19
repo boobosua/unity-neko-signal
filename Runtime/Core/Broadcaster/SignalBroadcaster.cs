@@ -106,7 +106,10 @@ namespace NekoSignal
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Warn($"[SignalBroadcaster] Stack trace capture failed: {ex.Message}");
+            }
 
             using (SignalLogStore.Emitter(emitter, file, line))
             {

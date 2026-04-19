@@ -42,7 +42,7 @@ namespace NekoSignal
                 Priority = priority
             };
 
-            if (owner != null && owner)
+            if (owner)
             {
                 info.OwnerGameObject = owner.gameObject;
                 info.TargetObject = owner;

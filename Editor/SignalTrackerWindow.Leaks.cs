@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace NekoSignal
 {
-    public partial class SignalTrackerWindow
+    internal partial class SignalTrackerWindow
     {
         private Vector2 _leaksScroll;
 
@@ -39,20 +39,15 @@ namespace NekoSignal
 
             _leaksScroll = EditorGUILayout.BeginScrollView(_leaksScroll);
 
-            var rowBg = EditorGUIUtility.isProSkin
-                ? new Color(1f, 0.6f, 0.1f, 0.08f)
-                : new Color(1f, 0.6f, 0.1f, 0.12f);
-
             for (int i = 0; i < leaks.Count; i++)
             {
                 var rowRect = EditorGUILayout.GetControlRect(false, ROW_HEIGHT);
                 if (i % 2 == 0)
-                    EditorGUI.DrawRect(rowRect, rowBg);
+                    EditorGUI.DrawRect(rowRect, _leaksRowBgColor);
                 DrawTableBorders(rowRect);
 
                 var labelRect = new Rect(rowRect.x + 10, rowRect.y, rowRect.width - 10, rowRect.height);
-                var style = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 11 };
-                GUI.Label(labelRect, leaks[i], style);
+                GUI.Label(labelRect, leaks[i], _leaksRowStyle);
             }
 
             EditorGUILayout.EndScrollView();
