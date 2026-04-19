@@ -270,9 +270,7 @@ namespace NekoSignal
             }
             else
             {
-                _tableCellStyle.normal.textColor = _naTextColor;
-                GUI.Label(centeredRect, "N/A", _tableCellStyle);
-                _tableCellStyle.normal.textColor = _defaultTextColor;
+                GUI.Label(centeredRect, "N/A", _tableCellNaStyle);
             }
         }
 

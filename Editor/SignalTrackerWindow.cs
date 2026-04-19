@@ -47,11 +47,14 @@ namespace NekoSignal
         private GUIStyle _tableHeaderStyle;
         private GUIStyle _tableCellStyle;
         private GUIStyle _tableCellDimStyle;
+        private GUIStyle _tableCellNaStyle;
         private GUIStyle _tableLinkCenterStyle;
-        private GUIStyle _tableLinkLeftStyle;
         private Color _defaultTextColor;
         private Color _dimmedTextColor;
         private Color _naTextColor;
+
+        // Log payload box
+        private GUIStyle _logPayloadBoxStyle;
 
         // Signal Log emit message
         private GUIStyle _logBaseStyle;
@@ -98,8 +101,12 @@ namespace NekoSignal
             _tableCellDimStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
             _tableCellDimStyle.normal.textColor = _dimmedTextColor;
 
+            _tableCellNaStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
+            _tableCellNaStyle.normal.textColor = _naTextColor;
+
             _tableLinkCenterStyle = new GUIStyle(EditorStyles.linkLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
-            _tableLinkLeftStyle = new GUIStyle(EditorStyles.linkLabel) { alignment = TextAnchor.MiddleLeft, fontSize = 10 };
+
+            _logPayloadBoxStyle = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
 
             // Log
             _logBaseStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 12 };

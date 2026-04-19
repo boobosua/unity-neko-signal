@@ -10,7 +10,7 @@ namespace NekoSignal
         /// <summary>Returns subscriber info for all current subscribers; cleans up stale owners first.</summary>
         public IEnumerable<SignalSubscriberInfo> GetSubscriberInfo()
         {
-            if (_subs == null || _subs.Count == 0)
+            if (_subs.Count == 0)
                 return Array.Empty<SignalSubscriberInfo>();
 
             CleanupStaleSubscribers();
@@ -23,12 +23,15 @@ namespace NekoSignal
 
         private void CleanupStaleSubscribers()
         {
-            if (_isInvoking || _subs == null || _subs.Count == 0) return;
+            if (_isInvoking || _subs.Count == 0) return;
 
             for (int i = _subs.Count - 1; i >= 0; i--)
             {
                 if (!_subs[i].Owner)
+                {
                     _subs.RemoveAt(i);
+                    _activeCount--;
+                }
             }
         }
 

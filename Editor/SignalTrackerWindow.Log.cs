@@ -128,8 +128,7 @@ namespace NekoSignal
 
             if (e.PayloadExpanded)
             {
-                var inner = new GUIStyle(EditorStyles.helpBox) { padding = new RectOffset(10, 10, 6, 6) };
-                EditorGUILayout.BeginVertical(inner);
+                EditorGUILayout.BeginVertical(_logPayloadBoxStyle);
                 if (e.PayloadFields != null && e.PayloadFields.Count > 0)
                 {
                     foreach (var f in e.PayloadFields)
