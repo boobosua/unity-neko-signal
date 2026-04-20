@@ -1,4 +1,4 @@
-# NekoSignal
+# Neko Signal
 
 A lightweight, type-safe signal (event) bus for Unity. Supports attribute-based handlers, priority ordering, and subscriber-side filtering — with zero reflection overhead at emit time.
 
