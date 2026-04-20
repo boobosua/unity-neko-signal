@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace NekoSignal.Tests
@@ -168,6 +169,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Filter_ThrowingException_TreatedAsFalse_SubscriberSkipped()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalChannel logs the caught filter exception
             bool called = false;
             Subscribe(_ => called = true);
             Assert.DoesNotThrow(() => SignalBus.Emit(new PingSignal(), new ThrowingFilter()));

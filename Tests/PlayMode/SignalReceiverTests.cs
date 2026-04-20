@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace NekoSignal.Tests
@@ -69,6 +70,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Listen_NullOwner_ReturnsNull()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalBroadcaster.Subscribe logs a warning
             SignalReceiver r = null;
             Assert.DoesNotThrow(() => r = SignalBus.Listen<PingSignal>(null, _ => { }));
             Assert.IsNull(r);
@@ -77,6 +79,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Listen_NullCallback_ReturnsNull()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalBroadcaster.Subscribe logs a warning
             SignalReceiver r = null;
             Assert.DoesNotThrow(() => r = _owner.Listen<PingSignal>((Action<PingSignal>)null));
             Assert.IsNull(r);

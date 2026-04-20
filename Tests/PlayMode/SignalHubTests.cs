@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace NekoSignal.Tests
@@ -128,6 +129,7 @@ namespace NekoSignal.Tests
         [Test]
         public void InvalidMethod_WrongParamCount_SkippedGracefully()
         {
+            LogAssert.ignoreFailingMessages = true; // DiscoverHandlers logs an error for the invalid signature
             var go2 = new GameObject("InvalidMethodHub");
             var r = go2.AddComponent<InvalidMethodReceiver>();
             Assert.DoesNotThrow(() => SignalHub.Bind(r));

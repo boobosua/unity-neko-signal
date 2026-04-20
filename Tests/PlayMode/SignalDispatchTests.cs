@@ -5,6 +5,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
+using LogAssert = UnityEngine.TestTools.LogAssert;
 
 namespace NekoSignal.Tests
 {
@@ -65,6 +66,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Listen_NullOwner_ReturnsNull_NoThrow()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalBroadcaster.Subscribe logs a warning
             SignalReceiver r = null;
             Assert.DoesNotThrow(() => r = SignalBus.Listen<PingSignal>(null, _ => { }));
             Assert.IsNull(r, "Subscribe with null owner must return null.");
@@ -73,6 +75,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Listen_NullCallback_ReturnsNull_NoThrow()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalBroadcaster.Subscribe logs a warning
             SignalReceiver r = null;
             Assert.DoesNotThrow(() => r = _owner.Listen<PingSignal>((Action<PingSignal>)null));
             Assert.IsNull(r, "Subscribe with null callback must return null.");
@@ -144,6 +147,7 @@ namespace NekoSignal.Tests
         [Test]
         public void Exception_InOneSubscriber_OthersStillReceive()
         {
+            LogAssert.ignoreFailingMessages = true; // SignalChannel logs the caught exception as an error
             bool secondCalled = false;
             Track(_owner.Listen<PingSignal>(_ => throw new InvalidOperationException("test"), priority: 10));
             Track(_owner.Listen<PingSignal>(_ => secondCalled = true, priority: 1));
