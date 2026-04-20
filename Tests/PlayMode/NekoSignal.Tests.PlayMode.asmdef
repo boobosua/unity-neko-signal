@@ -1,0 +1,22 @@
+{
+    "name": "NekoSignal.Tests.PlayMode",
+    "rootNamespace": "NekoSignal.Tests",
+    "references": [
+        "GUID:a7d3bf3fc7ba78342a4d624c33011439",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
