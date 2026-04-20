@@ -1,3 +1,10 @@
+## [2.0.3] - 2026-04-20
+
+### Bug Fixes and Performance Improvements
+
+- Improve editor performance when tracking a large number of signals.
+- Clean up unused code and optimize internal data structures for better performance.
+
 ## [2.0.0] - 2026-03-10
 
 ### Major Refactor and API Changes
