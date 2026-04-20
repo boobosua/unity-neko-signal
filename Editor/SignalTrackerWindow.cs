@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using NekoLib.Logger;
 using UnityEditor;
 using UnityEngine;
 
@@ -115,21 +114,21 @@ namespace NekoSignal
 
             if (proSkin)
             {
-                _logCompStyle.normal.textColor  = new Color(0.55f, 0.8f,  1f,   1f);
-                _logCompStyle.hover.textColor   = new Color(0.65f, 0.9f,  1f,   1f);
-                _logCompStyle.active.textColor  = new Color(0.8f,  0.95f, 1f,   1f);
-                _logGoStyle.normal.textColor    = new Color(0.6f,  0.95f, 0.9f, 1f);
-                _logGoStyle.hover.textColor     = new Color(0.7f,  1f,    0.95f,1f);
-                _logGoStyle.active.textColor    = new Color(0.85f, 1f,    0.98f,1f);
+                _logCompStyle.normal.textColor = new Color(0.55f, 0.8f, 1f, 1f);
+                _logCompStyle.hover.textColor = new Color(0.65f, 0.9f, 1f, 1f);
+                _logCompStyle.active.textColor = new Color(0.8f, 0.95f, 1f, 1f);
+                _logGoStyle.normal.textColor = new Color(0.6f, 0.95f, 0.9f, 1f);
+                _logGoStyle.hover.textColor = new Color(0.7f, 1f, 0.95f, 1f);
+                _logGoStyle.active.textColor = new Color(0.85f, 1f, 0.98f, 1f);
             }
             else
             {
-                _logCompStyle.normal.textColor  = new Color(0.05f, 0.35f, 0.75f,1f);
-                _logCompStyle.hover.textColor   = new Color(0.1f,  0.45f, 0.9f, 1f);
-                _logCompStyle.active.textColor  = new Color(0.15f, 0.5f,  1f,   1f);
-                _logGoStyle.normal.textColor    = new Color(0f,    0.45f, 0.4f, 1f);
-                _logGoStyle.hover.textColor     = new Color(0f,    0.6f,  0.55f,1f);
-                _logGoStyle.active.textColor    = new Color(0f,    0.7f,  0.65f,1f);
+                _logCompStyle.normal.textColor = new Color(0.05f, 0.35f, 0.75f, 1f);
+                _logCompStyle.hover.textColor = new Color(0.1f, 0.45f, 0.9f, 1f);
+                _logCompStyle.active.textColor = new Color(0.15f, 0.5f, 1f, 1f);
+                _logGoStyle.normal.textColor = new Color(0f, 0.45f, 0.4f, 1f);
+                _logGoStyle.hover.textColor = new Color(0f, 0.6f, 0.55f, 1f);
+                _logGoStyle.active.textColor = new Color(0f, 0.7f, 0.65f, 1f);
             }
 
             _logTimeStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 11, fontStyle = FontStyle.Bold };
@@ -138,7 +137,7 @@ namespace NekoSignal
             _logFilterStyle.normal.textColor = new Color(1f, 0.9f, 0.4f, 1f);
             _logTimeBadgeColor = proSkin
                 ? new Color(0.15f, 0.85f, 0.95f, 0.9f)
-                : new Color(0f,    0.65f, 0.7f,  0.9f);
+                : new Color(0f, 0.65f, 0.7f, 0.9f);
 
             // Leaks
             _leaksRowStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleLeft, fontSize = 11 };
@@ -204,9 +203,9 @@ namespace NekoSignal
             if (methodName.Contains("<") && methodName.Contains(">"))
             {
                 if (methodName.Contains("<OnEnable>")) return "Lambda in OnEnable";
-                if (methodName.Contains("<Start>"))    return "Lambda in Start";
-                if (methodName.Contains("<Awake>"))    return "Lambda in Awake";
-                if (methodName.Contains("b__"))        return "Lambda Expression";
+                if (methodName.Contains("<Start>")) return "Lambda in Start";
+                if (methodName.Contains("<Awake>")) return "Lambda in Awake";
+                if (methodName.Contains("b__")) return "Lambda Expression";
                 return "Anonymous Method";
             }
 
